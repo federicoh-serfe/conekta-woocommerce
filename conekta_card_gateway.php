@@ -25,7 +25,6 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $this->id = 'conektacard';
         $this->method_title = __('Conekta Card', 'conektacard');
         $this->has_fields = true;
-        $monthly = [3, 6, 9, 12, 18];
         $this->ckpg_init_form_fields();
         $this->init_settings();
 
@@ -46,21 +45,50 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $this->secret_key           = $this->use_sandbox_api ?  $this->test_api_key : $this->live_api_key;
         $this->lang_options         = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
         
-        foreach($monthly as $m) {
-            
-            if( $this->settings[$m .'_months_msi'] == 'no' && isset( $this->lang_options['monthly_installments'][$m] )) {
+        if( $this->enable_meses ) {
+
+            if(  !is_admin() ) {
                 
-                unset($this->lang_options['monthly_installments'][$m]);
+                if( (  !empty($woocommerce->cart->total) && ( intval($woocommerce->cart->total) < $this->settings['amount_monthly_install'] ) ) ) {
+                    foreach(array_keys($this->lang_options['monthly_installments'] ) as $monthly) {
+                        unset($this->lang_options['monthly_installments'][$monthly]);
+                    }
+                    
+                } else {
+                    
+                    foreach(array_keys($this->lang_options['monthly_installments'] ) as $monthly) {
+                        
+                        if( $this->settings[$monthly .'_months_msi'] == 'no' && isset( $this->lang_options['monthly_installments'][$monthly] ) ) {
+                            unset($this->lang_options['monthly_installments'][$monthly]);
+                        }
+                    }
+                }
+                
+            } else {
+                $min_amount = 300;
+                switch( $this->ckpg_find_last_month() ) {
+                    case '3_months_msi' : $min_amount = 300; break;
+                    case '6_months_msi' : $min_amount = 600; break;
+                    case '9_months_msi' : $min_amount = 900; break;
+                    case '12_months_msi' : $min_amount = 1200; break;
+                    case '18_months_msi' : $min_amount = 1800; break;
+                }
+                if( $this->settings['amount_monthly_install'] < $min_amount ) {
+                    $this->settings['amount_monthly_install'] = '';
+                    update_option('woocommerce_conektacard_settings',$this->settings);
+                }
+            }
+        } else {
+            if( is_admin() ) {
+                $this->settings['amount_monthly_install'] = '';
+                $this->settings['3_months_msi'] = '';
+                $this->settings['6_months_msi'] = '';
+                $this->settings['9_months_msi'] = '';
+                $this->settings['12_months_msi'] = '';
+                $this->settings['18_months_msi'] = '';
+                update_option('woocommerce_conektacard_settings',$this->settings);
             }
         }
-
-        if(!empty($woocommerce->cart->total) && ( intval($woocommerce->cart->total) < $this->settings['amount_monthly_install'] ) ){
-            foreach($monthly as $m) {
-            
-                unset($this->lang_options['monthly_installments'][$m]);
-            }
-        }
-
 
         add_action('wp_enqueue_scripts', array($this, 'ckpg_payment_fields'));
         add_action(
@@ -145,6 +173,12 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             'amount_monthly_install' => array(
                 'type'        => 'text',
                 'title'       => __('Minimun Amount for Monthly Installments', 'woothemes'),
+                'description' => __('Minimum amount for each installment from Conekta</br>
+                - 300 MXN para 3 meses sin intereses</br>
+                - 600 MXN para 6 meses sin intereses</br>
+                - 900 MXN para 9 meses sin intereses</br>
+                - 1200 MXN para 12 meses sin intereses</br>
+                - 1800 MXN para 18 meses sin intereses</br>', 'woothemes'),
             ),
             'debug' => array(
                 'type'        => 'checkbox',
@@ -207,7 +241,18 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             include_once('templates/payment_legacy.php');
         }
     }
+    public function ckpg_find_last_month() {
 
+        $last_month_true = false;
+        
+        foreach (array_keys($this->lang_options['monthly_installments']) as $last_month ) {
+            if( $this->settings[ $last_month .'_months_msi' ] == 'yes') {
+                
+                $last_month_true = $last_month;
+            }
+        }
+        return $last_month_true;
+    }
     public function ckpg_payment_fields()
     {
         if (!is_checkout()) {
