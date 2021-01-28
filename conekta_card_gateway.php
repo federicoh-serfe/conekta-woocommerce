@@ -33,7 +33,6 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $this->icon        = $this->settings['alternate_imageurl'] ?
             $this->settings['alternate_imageurl'] : WP_PLUGIN_URL . "/" . plugin_basename(dirname(__FILE__))
             . '/images/credits.png';
-
         $this->use_sandbox_api      = strcmp($this->settings['debug'], 'yes') == 0;
         $this->enable_meses         = strcmp($this->settings['meses'], 'yes') == 0;
         $this->enable_iframe         = strcmp($this->settings['iframe'], 'yes') == 0;
@@ -46,7 +45,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $this->secret_key           = $this->use_sandbox_api ?
             $this->test_api_key : $this->live_api_key;
         $this->lang_options         = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
-
+        $this->enable_save_card = $this->settings['enable_save_card'];
         add_action('wp_enqueue_scripts', array($this, 'ckpg_payment_fields'));
         add_action(
             'woocommerce_update_options_payment_gateways_' . $this->id,
@@ -145,6 +144,13 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
                 'title'       => __('Alternate Image to display on checkout, use fullly qualified url, served via https', 'woothemes'),
                 'default'     => __('', 'woothemes')
             ),
+            'enable_save_card' => array(
+                'type'        => 'checkbox',
+                'title'       => __('Save card', 'woothemes'),
+                'label'       => __('Enable save card', 'woothemes'),
+                'description' => __('Allow users to save the card for a future purchase.','woothemes'),
+                'default'     => __('no', 'woothemes')
+            ),
 
 
         );
@@ -241,13 +247,17 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
                     'type'     => 'card',
                     'token_id' => $data['token']
                 ),
-                'amount' => $amount
+                'amount' => $amount,
+                'on_demand_enabled' => true
             );
 
             $monthly_installments = $data['monthly_installments'];
             if ($monthly_installments > 1) {
                 $charge_details['payment_method']['monthly_installments'] = $monthly_installments;
             }
+
+            // $on_demand_enabled = $data['on_demand_enabled'];
+            // $charge_details['payment_method']['on_demand_enabled'] = $this->enable_save_card ? $on_demand_enabled : $this->enable_save_card;
 
             $charge = $order->createCharge($charge_details);
 

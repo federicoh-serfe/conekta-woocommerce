@@ -62,4 +62,10 @@
 </p>
 
 <?php endif; ?>
+<?php if ($this->enable_save_card) : ?>
+    <p class="form-row form-row-wide">
+    <label for="conekta-card-save"></label>
+    <input id="conekta-card-save"  type="checkbox" value="0" name="conekta-card-save"> <?php echo esc_html($this->lang_options["enable_save_card"]); ?></input>
+</p>
+<?php endif; ?>
 <div class="clear"></div> 

@@ -185,6 +185,7 @@ function ckpg_get_request_data($order)
 {
     $token = "";
     $monthly_installments = "";
+    $on_demand_enabled = false;
     if ($order AND $order != null)
     {
         // Discount Lines
@@ -269,6 +270,10 @@ function ckpg_get_request_data($order)
             $monthly_installments = int_validation($_POST['monthly_installments']);
         }
 
+        if (!empty($_POST['conekta-card-save'])) {
+            $on_demand_enabled = $_POST['conekta-card-save'];
+        }
+
         $amount               = validate_total($order->get_total());
         $currency             = get_woocommerce_currency();
 
@@ -280,7 +285,8 @@ function ckpg_get_request_data($order)
             'currency'             => $currency,
             'description'          => sprintf('Charge for %s', $order->get_billing_email()),
             'customer_info'        => $customer_info,
-            'shipping_lines'       => $shipping_lines
+            'shipping_lines'       => $shipping_lines,
+            'on_demand_enabled'    => $on_demand_enabled
         );
         $address_1 = $order->get_shipping_address_1();
         if (!empty($address1)) {
