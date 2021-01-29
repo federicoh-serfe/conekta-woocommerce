@@ -5,6 +5,7 @@
 			"6" => "6 months",
 			"9" => "9 months",
 			"12" => "12 months",
+			"18" => "18 months ( Banamex )",
 		),
 		"card_expiration" => array(
 			"1" => "01 - January",
