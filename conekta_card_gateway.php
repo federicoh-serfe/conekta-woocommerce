@@ -46,6 +46,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             $this->test_api_key : $this->live_api_key;
         $this->lang_options         = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
         $this->enable_save_card = $this->settings['enable_save_card'];
+
         add_action('wp_enqueue_scripts', array($this, 'ckpg_payment_fields'));
         add_action(
             'woocommerce_update_options_payment_gateways_' . $this->id,
@@ -197,8 +198,6 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         \Conekta\Conekta::setPluginVersion($this->version);
         \Conekta\Conekta::setLocale('es');
 
-
-
         //ALL $data VAR ASSIGNATION IS FREE OF VALIDATION
         $data             = ckpg_get_request_data($this->order);
         $amount           = $data['amount'];
@@ -217,8 +216,11 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             'customer_info'    => $customer_info,
             'shipping_lines'   => $shipping_lines,
             'discount_lines'   => $discount_lines,
-            'tax_lines'        => $tax_lines
+            'tax_lines'        => $tax_lines,
+            'on_demand_enabled' => true
         );
+
+
 
         if (!empty($shipping_contact)) {
             $order_details = array_merge($order_details, array('shipping_contact' => $shipping_contact));
@@ -230,6 +232,35 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         }
 
         $order_details = ckpg_check_balance($order_details, $amount);
+        
+        $on_demand_enabled = $data['on_demand_enabled'];
+        $charge_details['payment_method']['on_demand_enabled'] = $this->enable_save_card ? $on_demand_enabled : $this->enable_save_card;
+        
+        if( $charge_details['payment_method']['on_demand_enabled'] ){
+            
+            try {
+                $customer = \Conekta\Customer::create(
+                  [
+                    "name" => $data['customer_info']['name'],
+                    "email" => $data['customer_info']['email'],
+                    "phone" => $data['customer_info']['phone'],
+                    "metadata" => $order_metadata,
+                    "payment_sources" => [
+                      [
+                        "type" => "card",
+                        "token_id" => $data['token']
+                      ]
+                    ]
+                  ]
+                );
+            } catch (\Conekta\ProccessingError $error){
+            echo $error->getMesage();
+            } catch (\Conekta\ParameterValidationError $error){
+            echo $error->getMessage();
+            } catch (\Conekta\Handler $error){
+            echo $error->getMessage();
+            }
+        }
 
         try {
             $conekta_order_id = get_post_meta($this->order->get_id(), 'conekta-order-id', true);
@@ -247,8 +278,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
                     'type'     => 'card',
                     'token_id' => $data['token']
                 ),
-                'amount' => $amount,
-                'on_demand_enabled' => true
+                'amount' => $amount
             );
 
             $monthly_installments = $data['monthly_installments'];
@@ -256,8 +286,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
                 $charge_details['payment_method']['monthly_installments'] = $monthly_installments;
             }
 
-            // $on_demand_enabled = $data['on_demand_enabled'];
-            // $charge_details['payment_method']['on_demand_enabled'] = $this->enable_save_card ? $on_demand_enabled : $this->enable_save_card;
+
 
             $charge = $order->createCharge($charge_details);
 

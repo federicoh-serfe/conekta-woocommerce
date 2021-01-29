@@ -7,6 +7,7 @@
 ?>
 <div class="clear"></div>
 <span style="width: 100%; float: left; color: red;" class='payment-errors required'></span>
+<?php if(false): ?>
 <div class="form-row form-row-wide">
     <label for="conekta-card-number"><?php echo esc_html($this->lang_options["card_number"]); ?><span class="required">*</span></label>
     <input id="conekta-card-number" class="input-text" type="text" data-conekta="card[number]" />
@@ -60,7 +61,6 @@
         <?php endforeach; ?>
     </select>
 </p>
-
 <?php endif; ?>
 <?php if ($this->enable_save_card) : ?>
     <p class="form-row form-row-wide">
@@ -68,4 +68,31 @@
     <input id="conekta-card-save"  type="checkbox" value="0" name="conekta-card-save"> <?php echo esc_html($this->lang_options["enable_save_card"]); ?></input>
 </p>
 <?php endif; ?>
+<?php endif; ?>
+<?php 
+//cus_2pAH68yh8xYiy5YA8
+\Conekta\Conekta::setApiKey($this->secret_key);
+\Conekta\Conekta::setApiVersion('2.0.0');
+
+$customer = \Conekta\Customer::find('cus_2pAH68yh8xYiy5YA8');
+error_log(print_r($customer,true));
+?>
+<div style="margin: 2rem;">
+    <?php foreach( $customer->payment_sources as $info_card): ?>
+
+            <div style="border-bottom: 0.1rem solid #dedfdf;padding:2rem" >
+                <input id="" type="radio" class="input-radio" name="payment_method" value="">
+
+                <label for="<?php $art ?>"><strong><?php echo esc_html($info_card->customer['name'])?></strong>
+                    <a id="borrar" onclick=""><img style="float:right;" src="../wp-content/plugins/conekta-woocommerce/images/icons/trash-alt-solid.svg" alt="X" /></a>
+                    <br>
+                    <img src=""><p> <strong><?php echo esc_html($info_card->brand) ?> </strong>Tarjeta de crédito con terminación <strong>**** <?php echo esc_html($info_card->last4) ?></strong></p>
+                </label>
+                
+            </div>
+            
+        <?php endforeach ?>
+    <button style="background-color:transparent;color:#cd2653; font-size: 1.5rem;" type="button" class="alt" name="" id="new_card" value="new card" data-value="new card">+ Ingresar los datos de tu tarjeta de crédito o débito </button>
+</div>
+
 <div class="clear"></div> 
