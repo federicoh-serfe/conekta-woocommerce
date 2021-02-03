@@ -553,18 +553,18 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             if ( isset($customer) && $data['on_demand_enabled'] ){
                 $payment_method =array(
                     'type'     => 'card'
-                )
+                );
             }else if( !$data['on_demand_enabled']) {
-                $payment_method =array(
+                $payment_method = array(
                     'type'     => 'card',
                     'token_id' => $data['token']
-                )
+                );
             }else if( isset($data['card_select'])){
 
                 $payment_method = array(
                     'type'     => 'card',
                     "payment_source_id" => $data['card_select']
-                )
+                );
             }
             $charge_details = array_merge($charge_details, $payment_method);
 
