@@ -45,7 +45,13 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $this->lang_options         = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
         $this->enable_save_card = $this->settings['enable_save_card'];
 
+        \Conekta\Conekta::setApiKey($this->secret_key);
+        \Conekta\Conekta::setApiVersion('2.0.0');
+        
+        $this->customer_id = parent::ckpg_get_conekta_metadata(get_current_user_id(),'conekta_customer_id');
+        $this->customer = \Conekta\Customer::find($this->customer_id[0]->meta_value);
         $this->ckpg_conekta_register_js_card_add_gateway();
+        
         if( $this->enable_meses ) {
 
             if(  !is_admin() ) {
@@ -95,6 +101,98 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         if (empty($this->secret_key)) {
             $this->enabled = false;
         }
+
+    add_action('woocommerce_after_checkout_form', array($this, 'aaaalal'));
+	add_action('woocommerce_order_refunded',  array($this, 'ckpg_conekta_card_order_refunded'), 10,2);
+    add_action( 'woocommerce_order_partially_refunded', array( $this, 'ckpg_conekta_card_order_partially_refunded'), 10,2);
+        add_action(
+            'woocommerce_api_' . strtolower(get_class($this)),
+            array($this, 'ckpg_webhook_handler')
+        );
+    }
+
+    /**
+     * Updates the status of the order.
+     * Webhook needs to be added to Conekta account tusitio.com/wc-api/WC_Conekta_Card_Gateway
+     */
+    function aaaalal(){
+        wp_enqueue_script('conekta_checkout', WP_PLUGIN_URL . "/" . plugin_basename(dirname(__FILE__)) . '/assets/js/conekta_checkout.js', '', '1.0', true); //check import convention
+    }
+    public function ckpg_webhook_handler()
+    {
+        header('HTTP/1.1 200 OK');
+        $body          = @file_get_contents('php://input');
+        $event         = json_decode($body, true);
+        $conekta_order = $event['data']['object'];
+        $charge        = $conekta_order['charges']['data'][0];
+        $order_id      = $conekta_order['metadata']['reference_id'];
+        $paid_at       = date("Y-m-d", $charge['paid_at']);
+        $order         = new WC_Order($order_id);
+
+         if(strpos($event['type'], "order.refunded") !== false)  { 
+            $order->update_status('refunded', __( 'Order has been refunded', 'woocommerce' ));
+        } elseif(strpos($event['type'], "order.partially_refunded") !== false || strpos($event['type'], "charge.partially_refunded") !== false) {
+            $refunded_amount = $conekta_order['amount_refunded'] / 100;
+            $refund_args = array('amount' => $refunded_amount, 'reason' => null, 'order_id' => $order_id );
+            $refund = wc_create_refund($refund_args);
+        } elseif(strpos($event['type'], "order.canceled") !== false) {
+	        $order->update_status('cancelled', __( 'Order has been cancelled', 'woocommerce' ));
+	    } 
+        
+    }
+
+
+    public function ckpg_conekta_card_order_refunded($order_id = null)
+    {
+        global $woocommerce;
+        include_once('conekta_gateway_helper.php');
+        \Conekta\Conekta::setApiKey($this->secret_key);
+        \Conekta\Conekta::setApiVersion('2.0.0');
+        \Conekta\Conekta::setPlugin($this->name);
+        \Conekta\Conekta::setPluginVersion($this->version);
+        \Conekta\Conekta::setLocale('es');
+        
+		if (!$order_id){
+		    $order_id = sanitize_text_field((string) $_POST['order_id']);
+    	}
+
+        $data = get_post_meta( $order_id );
+		if($data['_payment_method'][0] != 'conektacard') {
+			return;
+		}
+		$total = $data['_order_total'][0] * 100;
+        $amount = floatval($_POST['amount']);
+		if(isset($amount))
+		{
+		    $params['amount'] = round($amount);
+		}
+        
+		try {
+        	$conekta_order_id = $data['conekta-order-id'][0];
+            $conekta_order = \Conekta\Order::find($conekta_order_id);
+            if($conekta_order['payment_status'] == "paid") {
+                $refund_response = $conekta_order->refund([
+                    'reason' => 'other',
+                    'amount' => $total,
+                ]);
+            } 
+		} catch (\Conekta\Handler $e) {
+			$description = $e->getMessage();
+            global $wp_version;
+            if (version_compare($wp_version, '4.1', '>=')) {
+                wc_add_notice(__('Error: ', 'woothemes') . $description , $notice_type = 'error');
+            } else {
+                error_log('Gateway Error:' . $description . "\n");
+                $woocommerce->add_error(__('Error: ', 'woothemes') . $description);
+            }
+            return false;
+		} 
+    }
+
+    public function ckpg_conekta_card_order_partially_refunded($order_id = null)
+    {
+        //just to verify if the action is called
+        error_log("partially refunded");
     }
 
     /**
@@ -103,11 +201,10 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     */
     public function ckpg_perform_ssl_check()
     {
-        if (
-            !$this->use_sandbox_api
-            && get_option('woocommerce_force_ssl_checkout') == 'no'
-            && $this->enabled == 'yes'
-        ) {
+        ///
+        if (!$this->use_sandbox_api
+          && get_option('woocommerce_force_ssl_checkout') == 'no'
+          && $this->enabled == 'yes') {
             echo '<div class="error"><p>'
                 . sprintf(
                     __('%s sandbox testing is disabled and can performe live transactions'
@@ -284,7 +381,25 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
 
         //ALL $data VAR ASSIGNATION IS FREE OF VALIDATION
         $data             = ckpg_get_request_data($this->order);
-        $amount           = $data['amount'];
+        $on_demand_enabled = $data['on_demand_enabled'];
+
+        $customer = null;
+        if( $this->enable_save_card  ) {
+            
+            $customer_id = parent::ckpg_get_conekta_metadata(get_current_user_id(),'conekta_customer_id');
+
+            if( empty($customer_id[0]) ) {
+
+                if( $on_demand_enabled ) {
+                    $customer = null;
+                   $this->ckpg_create_new_customer($data);
+                }
+            }
+        }
+
+        $customer =  \Conekta\Customer::find('cus_2pBpKnc1ufWWMuFJ9');
+        $customer->payment_sources[0] = array_merge($customer->payment_sources[0],array('phone'=>'1213132131'));
+        $amount           = (int) $data['amount'];
         $items            = $this->order->get_items();
         $taxes            = $this->order->get_taxes();
         $line_items       = ckpg_build_line_items($items, parent::ckpg_get_version());
@@ -292,7 +407,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $shipping_lines   = ckpg_build_shipping_lines($data);
         $shipping_contact = ckpg_build_shipping_contact($data);
         $tax_lines        = ckpg_build_tax_lines($taxes);
-        $customer_info    = ckpg_build_customer_info($data);
+        $customer_info    = ($on_demand_enabled)? array('customer_id' => $customer->id ) : ckpg_build_customer_info($data);
         $order_metadata   = ckpg_build_order_metadata($data);
         $order_details    = array(
             'currency'         => $data['currency'],
@@ -317,80 +432,11 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
 
         $order_details = ckpg_check_balance($order_details, $amount);
         
-        $on_demand_enabled = $data['on_demand_enabled'];
         $charge_details['payment_method']['on_demand_enabled'] = $this->enable_save_card ? $on_demand_enabled : $this->enable_save_card;
         
-        if( $charge_details['payment_method']['on_demand_enabled'] ){
-            
-            try {
-                $customer = \Conekta\Customer::create(
-                  [
-                    "name" => $data['customer_info']['name'],
-                    "email" => $data['customer_info']['email'],
-                    "phone" => $data['customer_info']['phone'],
-                    "metadata" => $order_metadata,
-                    "payment_sources" => [
-                      [
-                        "type" => "card",
-                        "token_id" => $data['token']
-                      ]
-                    ]
-                  ]
-                );
-            } catch (\Conekta\ProccessingError $error){
-            echo $error->getMesage();
-            } catch (\Conekta\ParameterValidationError $error){
-            echo $error->getMessage();
-            } catch (\Conekta\Handler $error){
-            echo $error->getMessage();
-            }
-        }
+        
 
-        try {
-            $conekta_order_id = get_post_meta($this->order->get_id(), 'conekta-order-id', true);
-            if (!empty($conekta_order_id)) {
-                $order = \Conekta\Order::find($conekta_order_id);
-                $order->update($order_details);
-            } else {
-                $order = \Conekta\Order::create($order_details);
-            }
-            //ORDER ID IS GENERATED BY RESPONSE
-            update_post_meta($this->order->get_id(), 'conekta-order-id', $order->id);
-
-            $charge_details = array(
-                'payment_method' => array(
-                    'type'     => 'card',
-                    'token_id' => $data['token']
-                ),
-                'amount' => $amount
-            );
-
-            $monthly_installments = $data['monthly_installments'];
-            if ($monthly_installments > 1) {
-                $charge_details['payment_method']['monthly_installments'] = $monthly_installments;
-            }
-
-
-
-            $charge = $order->createCharge($charge_details);
-
-            $this->transaction_id = $charge->id;
-            if ($data['monthly_installments'] > 1) {
-                update_post_meta($this->order->get_id(), 'meses-sin-intereses', $data['monthly_installments']);
-            }
-            update_post_meta($this->order->get_id(), 'transaction_id', $this->transaction_id);
-            return true;
-        } catch (\Conekta\Handler $e) {
-            $description = $e->getMessage();
-            global $wp_version;
-            if (version_compare($wp_version, '4.1', '>=')) {
-                wc_add_notice(__('Error: ', 'woothemes') . $description, $notice_type = 'error');
-            } else {
-                error_log('Gateway Error:' . $description . "\n");
-                $woocommerce->add_error(__('Error: ', 'woothemes') . $description);
-            }
-            return false;
-        }
+  
     }
 
     protected function ckpg_mark_as_failed_payment()
@@ -458,6 +504,94 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     public function ckpg_is_null_or_empty_string($string)
     {
         return (!isset($string) || trim($string) === '');
+    }
+
+    public function ckpg_create_new_customer($data) {
+
+        try {
+            $customer = \Conekta\Customer::create(
+              [
+                "name" => $data['customer_info']['name'],
+                "email" => $data['customer_info']['email'],
+                "phone" => $data['customer_info']['phone'],
+                "metadata" => $order_metadata,
+                "payment_sources" => [
+                  [
+                    "type" => "card",
+                    'token_id' => $data['token']
+                  ]
+                ]
+              ]
+            );
+            parent::ckpg_update_conekta_metadata(get_current_user_id(),'conekta_customer_id', $customer->id );
+            return $customer;
+        } catch (\Conekta\ProccessingError $error){
+        echo $error->getMesage();
+        } catch (\Conekta\ParameterValidationError $error){
+        echo $error->getMessage();
+        } catch (\Conekta\Handler $error){
+        echo $error->getMessage();
+        }
+        return false;
+    }
+
+    public function ckpg_create_order($data, $amount, $customer) {
+        try {
+            $conekta_order_id = get_post_meta($this->order->get_id(), 'conekta-order-id', true);
+            if (!empty($conekta_order_id)) {
+                $order = \Conekta\Order::find($conekta_order_id);
+                $order->update($order_details);
+            } else {
+                $order = \Conekta\Order::create($order_details);
+            }
+            //ORDER ID IS GENERATED BY RESPONSE
+            update_post_meta($this->order->get_id(), 'conekta-order-id', $order->id);
+            $charge_details = array(
+                'amount' => $amount
+            );
+
+            if ( isset($customer) && $data['on_demand_enabled'] ){
+                $payment_method =array(
+                    'type'     => 'card'
+                )
+            }else if( !$data['on_demand_enabled']) {
+                $payment_method =array(
+                    'type'     => 'card',
+                    'token_id' => $data['token']
+                )
+            }else if( isset($data['card_select'])){
+
+                $payment_method = array(
+                    'type'     => 'card',
+                    "payment_source_id" => $data['card_select']
+                )
+            }
+            $charge_details = array_merge($charge_details, $payment_method);
+
+            $monthly_installments = $data['monthly_installments'];
+            if ($monthly_installments > 1) {
+                $charge_details['payment_method']['monthly_installments'] = $monthly_installments;
+            }
+
+            $charge = $order->createCharge($charge_details);
+
+            $this->transaction_id = $charge->id;
+            if ($data['monthly_installments'] > 1) {
+                update_post_meta($this->order->get_id(), 'meses-sin-intereses', $data['monthly_installments']);
+            }
+            update_post_meta($this->order->get_id(), 'transaction_id', $this->transaction_id);
+            return true;
+        } catch (\Conekta\Handler $e) {
+            $description = $e->getMessage();
+            global $wp_version;
+            if (version_compare($wp_version, '4.1', '>=')) {
+                wc_add_notice(__('Error: ', 'woothemes') . $description, $notice_type = 'error');
+            } else {
+                error_log('Gateway Error:' . $description . "\n");
+                $woocommerce->add_error(__('Error: ', 'woothemes') . $description);
+            }
+            return false;
+        }
     }
 }
 

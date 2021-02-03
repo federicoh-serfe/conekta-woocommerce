@@ -31,5 +31,7 @@
 		"single_payment" => "Single payment",
 		"spei" => "Please make your payment in the bank website using the pay ticket. Click to generate your reference ticket payment",
 		"oxxo" => "Please make your pay in the nearest OXXO using the payment ticket. Click to generate your reference ticket payment",
-		"enable_save_card" => "Do you want to save your card information?"
+		"enable_save_card" => "Do you want to save your card information?",
+		"card_termination" => "Credit card with termination",
+		"enter_card_details" => "+ Enter your credit or debit card details"
 	);

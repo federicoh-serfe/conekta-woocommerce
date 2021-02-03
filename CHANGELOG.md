@@ -1,3 +1,14 @@
+## [3.0.7]() - 2020-05-30
+- Fix problem whit amount -1
+- Fix problem whit reference oxxo pay
+- Fix amount in discount_lines
+
+## [3.0.6]() - 2020-01-10
+- Fix problem with amount -1
+
+## [3.0.5]() - 2019-08-10
+- Updated images for Conekta Payments
+
 ## [3.0.4](https://github.com/conekta/conekta-woocommerce/releases/tag/v3.0.4) - 2018-04-11
 ## Fix 
 - Fix for error token already used

@@ -26,7 +26,7 @@ function ckpg_check_balance($order, $total) {
     }
 
     if ($amount != $total) {
-        $adjustment = $total - $amount;
+        $adjustment = abs($amount - $total);
 
         $order['tax_lines'][0]['amount'] =
             $order['tax_lines'][0]['amount'] + intval($adjustment);
@@ -146,13 +146,25 @@ function ckpg_build_shipping_lines($data)
     return $shipping_lines;
 }
 
+//Solution for amount invalid
 function ckpg_build_discount_lines($data)
 {
     $discount_lines = array();
-
     if (!empty($data['discount_lines'])) {
-        $discount_lines = $data['discount_lines'];
-    }
+        $discounts = $data['discount_lines'];
+        foreach ($discounts as $discount) {
+            $discount_lines = array_merge(
+                $discount_lines,
+                    array(
+                        array(
+                            'code' => (string) $discount['code'],
+                            'amount' => (string) $discount['amount'] * 100,
+                            'type'=> 'coupon'
+                        )
+                    )
+                );
+            }
+        }
 
     return $discount_lines;
 }
@@ -212,7 +224,7 @@ function ckpg_get_request_data($order)
         if (!empty($shipping_method)) {
             $shipping_lines  = array(
                 array(
-                    'amount'  => $amountShipping,
+                    'amount'  => (int) number_format($amountShipping),
                     'carrier' => $shipping_method,
                     'method'  => $shipping_method
                 )
@@ -261,6 +273,7 @@ function ckpg_get_request_data($order)
             'phone' => $phone,
             'email' => $order->get_billing_email()
         );
+
         //PARAMS VALIDATION
         if (!empty($_POST['conekta_token'])) {
             $token = string_validation($_POST['conekta_token']);
@@ -274,9 +287,18 @@ function ckpg_get_request_data($order)
             $on_demand_enabled = $_POST['conekta-card-save'];
         }
 
+        
+        if( !empty($_POST['payment_method_2']) ) {
+
+            // $customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata(get_current_user_id(),'conekta_customer_id');
+            $payment_card = string_validation($_POST['payment_method_2']);
+            // $customer = \Conekta\Customer::find('cus_2pAH68yh8xYiy5YA8');
+            // $aux = $customer::find($_POST['payment_method_2'] );
+            // error_log(print_r($customer,true));
+        }
+
         $amount               = validate_total($order->get_total());
         $currency             = get_woocommerce_currency();
-
         $data = array(
             'order_id'             => $order->get_id(),
             'amount'               => $amount,
@@ -286,7 +308,8 @@ function ckpg_get_request_data($order)
             'description'          => sprintf('Charge for %s', $order->get_billing_email()),
             'customer_info'        => $customer_info,
             'shipping_lines'       => $shipping_lines,
-            'on_demand_enabled'    => $on_demand_enabled
+            'on_demand_enabled'    => $on_demand_enabled,
+            'payment_card'         => $payment_card
         );
         $address_1 = $order->get_shipping_address_1();
         if (!empty($address1)) {

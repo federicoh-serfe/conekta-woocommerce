@@ -31,5 +31,7 @@
 		"single_payment" => "Pago único",
 		"spei" => "Por favor realiza el pago el portal de tu banco utilizando la ficha de pago. Dale clic para generar la ficha de pago.",
 		"oxxo" => "Por favor realiza el pago en el OXXO más cercano utilizando la ficha de pago. Dale clic para generar la ficha de pago con la referencia.",
-		"enable_save_card" => "¿Deseas guardar la información de tu tarjeta?"
+		"enable_save_card" => "¿Deseas guardar la información de tu tarjeta?",
+		"card_termination" => "Tarjeta de crédito con terminación",
+		"enter_card_details" => "+ Ingresar los datos de tu tarjeta de crédito o débito"
 	);

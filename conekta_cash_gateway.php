@@ -80,19 +80,30 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
         $paid_at       = date("Y-m-d", $charge['paid_at']);
         $order         = new WC_Order($order_id);
 
-        if (strpos($event['type'], "order.paid") !== false
-            && $charge['payment_method']['type'] === "oxxo")
+        if($charge['payment_method']['type'] === "oxxo"){
+            if (strpos($event['type'], "order.paid") !== false)
             {
                 update_post_meta($order->get_id(), 'conekta-paid-at', $paid_at);
                 $order->payment_complete();
                 $order->add_order_note(sprintf("Payment completed in Oxxo and notification of payment received"));
 
                 parent::ckpg_offline_payment_notification($order_id, $conekta_order['customer_info']['name']);
+            }elseif(strpos($event['type'], "order.expired") !== false){
+
+                $order->update_status('cancelled', __( 'Oxxo payment has been expired', 'woocommerce' ));
+
+            }elseif(strpos($event['type'], "order.canceled") !== false){
+                
+                $order->update_status('cancelled', __( 'Order has been canceled', 'woocommerce' ));
             }
+        }
+        
     }
 
+    
     public function ckpg_init_form_fields()
     {
+        wp_enqueue_script('functions', WP_PLUGIN_URL."/".plugin_basename(dirname(__FILE__)).'/assets/js/functions.js', '', '1.0', true);
         $this->form_fields = array(
             'enabled' => array(
                 'type'        => 'checkbox',
@@ -110,7 +121,7 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
                 'type'        => 'text',
                 'title'       => __('Title', 'woothemes'),
                 'description' => __('This controls the title which the user sees during checkout.', 'woothemes'),
-                'default'     => __('Oxxo Pay Payment', 'woothemes')
+                'default'     => __('Conekta PAgo en Efectivo en Oxxo Pay', 'woothemes')
             ),
             'test_api_key' => array(
                 'type'        => 'password',
@@ -122,10 +133,20 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
                 'title'       => __('Conekta API Live Private key', 'woothemes'),
                 'default'     => __('', 'woothemes')
             ),
-            'expiration_days' => array(
+            'expiration_time' => array(
+                'type'        => 'select',
+                'title'       => __('Expiration time type', 'woothemes'),
+                'label'       => __('Hours', 'woothemes'),
+                'default'     => 'no',
+                'options'     => array(
+                    'hours' => "Hours",
+                    'days' => "Days",
+                ),
+            ),
+            'expiration' => array(
                 'type'        => 'text',
-                'title'       => __('Expiration time (in days) for the reference', 'woothemes'),
-                'default'     => __('30', 'woothemes')
+                'title'       => __('Expiration time (in days or hours) for the reference', 'woothemes'),
+                'default'     => __('1', 'woothemes')
             ),
             'alternate_imageurl' => array(
                 'type'        => 'text',
@@ -158,6 +179,15 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
     // this echo's may were safe of validation, because there are proveided by os
     function ckpg_thankyou_page($order_id) {
         $order = new WC_Order( $order_id );
+
+        /*
+        session_start();
+        $intans = $_SESSION['intans'];
+        $instan = $_SESSION['instan'];
+
+        echo '<p"><strong>'.('instances').':</strong> ' . $intans . '</p>';
+        echo '<p"><strong>'.('instance').':</strong> ' . $instan . '</p>';
+        */
 
         echo '<p style="font-size: 30px"><strong>'.__('Referencia').':</strong> ' . get_post_meta( esc_html($order->get_id()), 'conekta-referencia', true ). '</p>';
         echo '<p>OXXO cobrará una comisión adicional al momento de realizar el pago.</p>';
@@ -219,7 +249,7 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
         \Conekta\Conekta::setLocale('es');
 
         $data             = ckpg_get_request_data($this->order);
-        $amount           = $data['amount'];
+        $amount           = (int) $data['amount'];
         $items            = $this->order->get_items();
         $taxes            = $this->order->get_taxes();
         $line_items       = ckpg_build_line_items($items, parent::ckpg_get_version());
@@ -259,7 +289,8 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
 
             update_post_meta($this->order->get_id(), 'conekta-order-id', $order->id);
 
-            $expires_at = time() + ($this->settings['expiration_days'] * 86400);
+            $expires_at = $this->ckpg_expiration_payment($this->settings['expiration_time']);
+            
             $charge_details = array(
                 'payment_method' => array(
                     'type'       => 'oxxo_cash',
@@ -275,7 +306,7 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
             update_post_meta($this->order->get_id(), 'conekta-creado',     $charge->created_at);
             update_post_meta($this->order->get_id(), 'conekta-expira',     $charge->payment_method->expires_at);
             update_post_meta($this->order->get_id(), 'conekta-referencia', $charge->payment_method->reference);
-
+            
             return true;
         } catch(\Conekta\Handler $e) {
             $description = $e->getMessage();
@@ -290,7 +321,23 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
             return false;
         }
     }
+    public function ckpg_expiration_payment( $expiration ) {
 
+        switch( $expiration ){
+            case 'hours': 
+                $expiration_cont = 24;
+                $expires_time = 3600;
+            break;
+            case 'days': 
+                $expiration_cont = 32;
+                $expires_time = 86400;
+            break;
+        }
+        if($this->settings['expiration'] > 0 && $this->settings['expiration'] < $expiration_cont){
+            $expires = time() + ($this->settings['expiration'] * $expires_time);
+        }
+        return $expires;
+    }
     public function process_payment($order_id)
     {
         global $woocommerce;
@@ -363,6 +410,7 @@ function ckpg_conekta_cash_order_status_completed($order_id = null)
     }
 
     $data = get_post_meta( $order_id );
+
     $total = $data['_order_total'][0] * 100;
 
     $amount = floatval($_POST['amount']);
