@@ -70,3 +70,16 @@ function ckpg_conekta_activation() {
 }
 
 register_activation_hook(__FILE__, 'ckpg_conekta_activation');
+
+
+function ckpg_conekta_checkout_js() {
+
+    if (!is_checkout()) {
+        return;
+    }
+    wp_register_script('conekta_checkout_js', plugins_url('/assets/js/conekta_checkout-js.js', __FILE__),array('jquery'), '1.0.0', true);
+    wp_enqueue_script('conekta_checkout_js');
+    wp_localize_script('conekta_checkout_js', 'conekta_checkout_js',['ajaxurl' => admin_url( 'admin-ajax.php' )]);
+    
+}
+add_action( 'wp_enqueue_scripts','ckpg_conekta_checkout_js');

@@ -33,5 +33,5 @@
 		"oxxo" => "Please make your pay in the nearest OXXO using the payment ticket. Click to generate your reference ticket payment",
 		"enable_save_card" => "Do you want to save your card information?",
 		"card_termination" => "Credit card with termination",
-		"enter_card_details" => "+ Enter your credit or debit card details"
+		"enter_card_details" => "+ ENTER YOUR CREDIT OR DEBIT CARD DETAILS"
 	);

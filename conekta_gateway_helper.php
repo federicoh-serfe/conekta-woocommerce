@@ -288,13 +288,8 @@ function ckpg_get_request_data($order)
         }
 
         
-        if( !empty($_POST['payment_method_2']) ) {
-
-            // $customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata(get_current_user_id(),'conekta_customer_id');
-            $payment_card = string_validation($_POST['payment_method_2']);
-            // $customer = \Conekta\Customer::find('cus_2pAH68yh8xYiy5YA8');
-            // $aux = $customer::find($_POST['payment_method_2'] );
-            // error_log(print_r($customer,true));
+        if( !empty($_POST['payment_card']) ) {
+            $payment_card = string_validation($_POST['payment_card']);
         }
 
         $amount               = validate_total($order->get_total());

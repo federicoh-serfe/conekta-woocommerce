@@ -8,11 +8,9 @@
 <div class="clear"></div>
 <span style="width: 100%; float: left; color: red;" class='payment-errors required'></span>
 <?php 
+$customer_id = parent::ckpg_get_conekta_metadata(get_current_user_id(), parent::CONEKTA_CUSTOMER_ID);
 
-
-
-?>
-<?php if( empty( $this->customer_id ) ): ?>
+ if( empty( $customer_id ) ): ?>
     <div class="form-row form-row-wide">
         <label for="conekta-card-number"><?php echo esc_html($this->lang_options["card_number"]); ?><span class="required">*</span></label>
         <input id="conekta-card-number" class="input-text" type="text" data-conekta="card[number]" />
@@ -74,24 +72,24 @@
     </p>
     <?php endif; ?>
 <?php endif; ?>
-<?php if( !empty( $this->customer_id ) ) : ?>
+<?php if( !empty( $customer_id ) ) : 
+    $customer = \Conekta\Customer::find($customer_id);
+?>
 <div style="margin: 2rem;">
     <ul class="">
-        <?php foreach( $this->customer->payment_sources as $info_card): ?>
+        <?php foreach( $customer->payment_sources as $info_card): ?>
             <li class="payment_method_2 card">
                 <div style="border-bottom: 0.1rem solid #dedfdf;padding:2rem" >
-                    <input id="<?php echo "radio_input_" . $info_card->id ?>" type="radio" class="input-radio" name="payment_method_2" value="<?php echo $info_card->id ?>" <?php echo ( $this->customer->default_payment_source_id == $info_card->id )? "checked" : "" ?>>
-
+                    <p><a class="delete_payment_card" value="<?php echo $info_card->id ?>" ><img style="float:right;" src="<?php echo plugin_dir_url(__DIR__) . 'images/icons/trash-alt-solid.svg' ?>" alt="X" /></a></p>
+                    <input id="<?php echo "radio_input_" . $info_card->id ?>" type="radio" class="input-radio" name="payment_card" value="<?php echo $info_card->id ?>" <?php echo ( $customer->default_payment_source_id == $info_card->id )? "checked" : "" ?>>
                     <label for="<?php echo esc_html($info_card->customer['name']) ?>"><strong><?php echo esc_html($info_card->customer['name'])?></strong>
-                        <a id="delete_data_card"><img style="float:right;" src="<?php echo plugin_dir_url(__DIR__) . 'images/icons/trash-alt-solid.svg' ?>" alt="X" /></a>
-                        <br>
                         <p> <img src="<?php echo esc_html( plugin_dir_url(__DIR__) .'images/icons/' . $info_card->brand .'.svg')?>" alt="<?php echo esc_html( $info_card->brand )?>"> <?php echo esc_html( $this->lang_options["card_termination"]) ?> <strong>**** <?php echo esc_html($info_card->last4) ?></strong> </p>
                     </label>
                 </div>
             </li> 
         <?php endforeach ?>
     </ul>
-    <button style="background-color:transparent;color:#cd2653; font-size: 1.5rem;" type="button" class="alt" name="" id="new_card_2" value="new card" data-value="new card"><?php echo esc_html( $this->lang_options["enter_card_details"]) ?></button>
+    <button style="background-color:transparent;color:#cd2653; font-size: 1.5rem;" type="button" class="alt" name="" id="new_payment_card" value="new card" data-value="new card"><?php echo esc_html( $this->lang_options["enter_card_details"]) ?></button>
 </div>
 <?php endif; ?>
 

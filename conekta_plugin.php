@@ -23,6 +23,10 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway
 	protected $lang;
 	protected $lang_messages;
 
+	const CONEKTA_CUSTOMER_ID = 'conekta_customer_id';
+	const CONEKTA_PAYMENT_SOURCES_ID = 'conekta_payment_source_id';
+	const CONEKTA_ENABLE_SAVE_CARD = 'conekta_enable_save_card';
+
 	public function ckpg_get_version()
 	{
 		return $this->version;
@@ -86,10 +90,10 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway
 		return ob_get_clean();
 	}
 
-	public function ckpg_update_conekta_metadata($user_id, $meta_options, $meta_value) {
+	static public function ckpg_update_conekta_metadata($user_id, $meta_options, $meta_value) {
 		global $wpdb;
 		
-		if ( empty( $this->ckpg_get_conekta_metadata($user_id, $meta_options) ) ){
+		if ( empty( WC_Conekta_Plugin::ckpg_get_conekta_metadata($user_id, $meta_options) ) ){
 
 			$sql = "INSERT INTO wp_woocommerce_conekta_metadata(id_user, meta_option, meta_value) VALUES ('{$user_id}','{$meta_options}','{$meta_value}')";
 		}
@@ -99,13 +103,26 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway
 		$wpdb->get_results($sql);
 	}
 	
-	public function ckpg_get_conekta_metadata($user_id, $meta_options) {
+	static public function ckpg_get_conekta_metadata($user_id, $meta_options) {
 		global $wpdb;
 	
 		$sql = "SELECT meta_value FROM wp_woocommerce_conekta_metadata WHERE id_user = '{$user_id}' AND meta_option = '{$meta_options}'";
 		
-		$meta_value = $wpdb->get_results($sql);
+		$meta_value = $wpdb->get_var($sql);
 	
 		return  $meta_value;
+	}
+
+
+	static public function ckpg_delete_conekta_metadata($user_id, $meta_options) {
+		global $wpdb;
+		
+		if ( !empty( WC_Conekta_Plugin::ckpg_get_conekta_metadata($user_id, $meta_options) ) ){
+
+			$sql = "DELETE FROM `wp_woocommerce_conekta_metadata` WHERE id_user = '{$user_id}' AND  meta_option = '{$meta_options}'";
+			
+			$wpdb->get_results($sql);
+		}
+
 	}
 }
