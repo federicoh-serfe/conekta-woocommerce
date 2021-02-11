@@ -91,6 +91,7 @@ class WC_Conekta_Spei_Gateway extends WC_Conekta_Plugin
 
     public function ckpg_init_form_fields()
     {
+        //Posiblemente hay que cambiar __('','') por define('','') para la versión mas reciente de PHP
         $this->form_fields = array(
             'enabled' => array(
                 'type'        => 'checkbox',
@@ -108,7 +109,7 @@ class WC_Conekta_Spei_Gateway extends WC_Conekta_Plugin
                 'type'        => 'text',
                 'title'       => __('Title', 'woothemes'),
                 'description' => __('This controls the title which the user sees during checkout.', 'woothemes'),
-                'default'     => __('Spei Payment', 'woothemes')
+                'default'     => __('Pago con SPEI', 'woothemes')
             ),
             'account_owner' => array(
                  'type'        => 'Account owner',
@@ -212,7 +213,7 @@ class WC_Conekta_Spei_Gateway extends WC_Conekta_Plugin
         \Conekta\Conekta::setLocale('es');
 
         $data             = ckpg_get_request_data($this->order);
-        $amount           = $data['amount'];
+        $amount           = (int) $data['amount'];
         $items            = $this->order->get_items();
         $taxes            = $this->order->get_taxes();
         $line_items       = ckpg_build_line_items($items, parent::ckpg_get_version());
