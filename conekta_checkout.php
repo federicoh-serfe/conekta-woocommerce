@@ -71,15 +71,21 @@ function ckpg_conekta_activation() {
 
 register_activation_hook(__FILE__, 'ckpg_conekta_activation');
 
-
-function ckpg_conekta_checkout_js() {
+function ckpg_conekta_checkout_custom_scripts_and_styles() {
 
     if (!is_checkout()) {
         return;
     }
+    
+    //Register CSS
+    wp_deregister_style('checkout_card');
+    wp_register_style('checkout_card', plugins_url('assets/css/card.scss', __FILE__), false, '1.0.0');
+    wp_enqueue_style('checkout_card');
+
+    //Register JS
     wp_register_script('conekta_checkout_js', plugins_url('/assets/js/conekta_checkout-js.js', __FILE__),array('jquery'), '1.0.0', true);
     wp_enqueue_script('conekta_checkout_js');
     wp_localize_script('conekta_checkout_js', 'conekta_checkout_js',['ajaxurl' => admin_url( 'admin-ajax.php' )]);
     
 }
-add_action( 'wp_enqueue_scripts','ckpg_conekta_checkout_js');
+add_action( 'wp_enqueue_scripts','ckpg_conekta_checkout_custom_scripts_and_styles');

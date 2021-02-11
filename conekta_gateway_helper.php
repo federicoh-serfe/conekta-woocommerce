@@ -198,6 +198,7 @@ function ckpg_get_request_data($order)
     $token = "";
     $monthly_installments = "";
     $on_demand_enabled = false;
+    $payment_card = null;
     if ($order AND $order != null)
     {
         // Discount Lines

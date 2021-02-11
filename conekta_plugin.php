@@ -25,7 +25,7 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway
 
 	const CONEKTA_CUSTOMER_ID = 'conekta_customer_id';
 	const CONEKTA_PAYMENT_SOURCES_ID = 'conekta_payment_source_id';
-	const CONEKTA_ENABLE_SAVE_CARD = 'conekta_enable_save_card';
+	const CONEKTA_ON_DEMAND_ENABLED = 'conekta_on_demand_enabled';
 
 	public function ckpg_get_version()
 	{
@@ -112,7 +112,6 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway
 	
 		return  $meta_value;
 	}
-
 
 	static public function ckpg_delete_conekta_metadata($user_id, $meta_options) {
 		global $wpdb;
