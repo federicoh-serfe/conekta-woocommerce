@@ -37,9 +37,9 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
         $this->secret_key      = $this->use_sandbox_api ?
                                  $this->test_api_key :
                                  $this->live_api_key;
-
+        
         $this->lang_options = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
-
+        
         if (empty($this->secret_key)){
             $this->enabled = false;
         }
@@ -103,7 +103,19 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
     
     public function ckpg_init_form_fields()
     {
-        wp_enqueue_script('functions', WP_PLUGIN_URL."/".plugin_basename(dirname(__FILE__)).'/assets/js/functions.js', '', '1.0', true);
+        wp_enqueue_script('functions', WP_PLUGIN_URL."/".plugin_basename(dirname(__FILE__)).'/assets/js/functions.js', array( 'jquery' ), '1.1.1', true);
+        $elements = (new WC_Order())->get_data_keys();
+        sort($elements);
+        $order_metadata = array();
+        foreach($elements as $key => $value){
+            $order_metadata[$value] = $value;
+        }
+        $elements = (new WC_Order_Item_Product())->get_data_keys();
+        sort($elements);
+        $product_metadata = array();
+        foreach($elements as $key => $value){
+            $product_metadata[$value] = $value;
+        }
         $this->form_fields = array(
             'enabled' => array(
                 'type'        => 'checkbox',
@@ -167,8 +179,21 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
                 'default' =>__('Por favor realiza el pago en el OXXO más cercano utilizando la referencia que se encuentra a continuación.', 'woocommerce'),
                 'desc_tip' => true,
             ),
+            'order_metadata' => array(
+                'title' => __( 'Additional Order Metadata', 'woocommerce' ),
+                'type' => 'multiselect',
+                'description' => __('More than one option can be chosen.', 'woocommerce'),
+                'options' => $order_metadata
+            ),
+            'product_metadata' => array(
+                'title' => __( 'Additional Product Metadata', 'woocommerce' ),
+                'type' => 'multiselect',
+                'description' => __('More than one option can be chosen.', 'woocommerce'),
+                'options' => $product_metadata
+            )
         );
     }
+
 
     /**
      * Output for the order received page.
@@ -258,7 +283,7 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
         $shipping_contact = ckpg_build_shipping_contact($data);
         $tax_lines        = ckpg_build_tax_lines($taxes);
         $customer_info    = ckpg_build_customer_info($data);
-        $order_metadata   = ckpg_build_order_metadata($data);
+        $order_metadata   = ckpg_build_order_metadata($this->order, $this->settings);
         $order_details    = array(
             'currency'         => $data['currency'],
             'line_items'       => $line_items,
@@ -277,7 +302,7 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
         }
 
         $order_details = ckpg_check_balance($order_details, $amount);
-
+        
         try {
             $conekta_order_id = get_post_meta($this->order->get_id(), 'conekta-order-id', true);
             if (!empty($conekta_order_id)) {

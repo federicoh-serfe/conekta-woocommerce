@@ -44,17 +44,31 @@ function ckpg_check_balance($order, $total) {
  * Build the line items hash
  * @param array $items
  */
-function ckpg_build_order_metadata($data)
+function ckpg_build_order_metadata($data, $settings)
 {
     $metadata = array(
-        'reference_id' => $data['order_id']
+        'reference_id' => $data->get_id()
     );
 
-    if (!empty($data['customer_message'])) {
-        $metadata = array_merge(
-            $metadata, array(
-                'customer_message' => $data['customer_message'])
-        );
+    $customer_note = $data->get_customer_note();
+    if (!empty($customer_note)) {
+        $metadata = array_merge( $metadata, array('customer_message' => $data->get_customer_note()));
+    }
+    foreach($settings["order_metadata"] as $order_meta){
+        $metadata = array_merge( $metadata, array($order_meta => $data->$order_meta));
+    }
+    if(!empty($settings["product_metadata"])){ 
+        $items = $data->get_items();
+        error_log( print_r( $items, true ) );
+        $metadata['products'] = array();
+        foreach($items as $item){
+
+            $prod = array();
+            foreach($settings["product_metadata"] as $product_meta){
+                $prod[$product_meta] = $item[$product_meta];
+            }
+            $metadata['products'][] = $prod;
+        }
     }
 
     return $metadata;
