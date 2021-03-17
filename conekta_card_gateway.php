@@ -215,6 +215,18 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
 
     public function ckpg_init_form_fields()
     {
+        $elements = (new WC_Order())->get_data_keys();
+        sort($elements);
+        $order_metadata = array();
+        foreach($elements as $key => $value){
+            $order_metadata[$value] = $value;
+        }
+        $elements = (new WC_Order_Item_Product())->get_data_keys();
+        sort($elements);
+        $product_metadata = array();
+        foreach($elements as $key => $value){
+            $product_metadata[$value] = $value;
+        }
         $this->form_fields = array(
          'enabled' => array(
           'type'        => 'checkbox',
@@ -307,7 +319,18 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             'description' => __('Allow users to save the card for a future purchase.','woothemes'),
             'default'     => __('no', 'woothemes')
             ),
-
+            'order_metadata' => array(
+                'title' => __( 'Additional Order Metadata', 'woocommerce' ),
+                'type' => 'multiselect',
+                'description' => __('More than one option can be chosen.', 'woocommerce'),
+                'options' => $order_metadata
+            ),
+            'product_metadata' => array(
+                'title' => __( 'Additional Product Metadata', 'woocommerce' ),
+                'type' => 'multiselect',
+                'description' => __('More than one option can be chosen.', 'woocommerce'),
+                'options' => $product_metadata
+            )
 
          );
     }
@@ -348,7 +371,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     }
     public function ckpg_conekta_register_js_card_add_gateway(){
         if(is_admin()){
-            wp_enqueue_script('conekta_card_gateway', WP_PLUGIN_URL . "/" . plugin_basename(dirname(__FILE__)) . '/assets/js/conekta_card_gateway.js', '', '1.0', true);
+            wp_enqueue_script('conekta_card_gateway', WP_PLUGIN_URL . "/" . plugin_basename(dirname(__FILE__)) . '/assets/js/conekta_card_gateway.js', '', '1.0.1', true);
         }
     }
     protected function ckpg_send_to_conekta()
@@ -371,7 +394,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $shipping_lines   = ckpg_build_shipping_lines($data);
         $shipping_contact = ckpg_build_shipping_contact($data);
         $tax_lines        = ckpg_build_tax_lines($taxes);
-        $order_metadata   = ckpg_build_order_metadata($data);
+        $order_metadata   = ckpg_build_order_metadata($this->order, $this->settings);
 
         $customer = null;
         $on_demand_enabled = parent::ckpg_get_conekta_metadata(get_current_user_id(), parent::CONEKTA_ON_DEMAND_ENABLED);
