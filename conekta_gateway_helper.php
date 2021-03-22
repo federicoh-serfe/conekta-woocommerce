@@ -59,19 +59,36 @@ function ckpg_build_order_metadata($data, $settings)
     }
     if(!empty($settings["product_metadata"])){ 
         $items = $data->get_items();
-        error_log( print_r( $items, true ) );
-        $metadata['products'] = array();
         foreach($items as $item){
-
-            $prod = array();
+            $index ='product-'.$item['product_id'];
+            $metadata[$index] = '';
             foreach($settings["product_metadata"] as $product_meta){
-                $prod[$product_meta] = $item[$product_meta];
+                $metadata[$index] .= ckpg_recursive_build_product_metadata($item[$product_meta], $product_meta);
             }
-            $metadata['products'][] = $prod;
+            $metadata[$index] = substr($metadata[$index], 0, -2);
         }
     }
-
     return $metadata;
+}
+function ckpg_recursive_build_product_metadata($data_object, $key){
+    $string = '';
+    if(gettype($data_object) == 'array'){
+        foreach(array_keys($data_object) as $data_key){
+            $key_concat = strval($key).'-'.strval($data_key);
+            if(empty($data_object[$data_key])){
+                $string .= strval($key_concat) . ': NULL | ';
+            }else{
+                $string .= ckpg_recursive_build_product_metadata($data_object[$data_key], $key_concat);
+            }
+        }
+    }else{
+        if(empty($data_object)){
+            $string .= strval($key) . ': NULL | ';
+        }else{
+            $string .= strval($key) . ': ' . strval($data_object) . ' | ';
+        }
+    }
+    return $string;
 }
 
 function ckpg_build_line_items($items, $version)
