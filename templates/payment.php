@@ -8,101 +8,152 @@
 <div class="clear"></div>
 <span style="width: 100%; float: left; color: red;" class='payment-errors required'></span>
 <?php 
-$customer_id = parent::ckpg_get_conekta_metadata(get_current_user_id(), parent::CONEKTA_CUSTOMER_ID);
-$sources = parent::ckpg_get_conekta_metadata(get_current_user_id(), parent::CONEKTA_PAYMENT_SOURCES_ID);
-if(!empty($customer_id)){
-    $customer = \Conekta\Customer::find($customer_id); 
-} 
-if(!empty( $sources )){
-    $sources = explode(',',$sources);
-}
+    $customer_id = parent::ckpg_get_conekta_metadata(get_current_user_id(), parent::CONEKTA_CUSTOMER_ID);
+    $sources = parent::ckpg_get_conekta_metadata(get_current_user_id(), parent::CONEKTA_PAYMENT_SOURCES_ID);
+    if(!empty($customer_id)){
+        $customer = \Conekta\Customer::find($customer_id); 
+    }else{
+        $validCustomer = [
+            'name' => (empty(WC()->session->customer['first_name']) || empty(WC()->session->customer['last_name'])) ? "NEW CUSTOMER" :sprintf('%s %s', WC()->session->customer['first_name'], WC()->session->customer['last_name']),
+            'email' => (empty(WC()->session->customer['email'])) ? "new_customer@mail.com" : WC()->session->customer['email'],
+            'phone' => (empty(WC()->session->customer['phone'])) ? "0000000000" : sanitize_text_field(WC()->session->customer['phone'])
+        ];
+
+        $customer = \Conekta\Customer::create($validCustomer);
+    }
+
+    if(!empty( $sources )){
+        $sources = explode(',',$sources);
+    }
+
+    $line_items = array();
+
+    foreach (WC()->cart->cart_contents as $element){
+        $sub_total   = floatval($element['line_subtotal']) * 1000;
+        $unit_price   = $sub_total / floatval($element['quantity']);
+        $unit_price  = intval(round($unit_price / 10), 2);
+        $version = parent::ckpg_get_version();
+        $line_items[] = array(
+            'name'=> $element['data']->get_name(),
+            'unit_price'=> $unit_price,
+            'quantity'=> $element['quantity'],
+            'sku'=> $element['data']->get_sku()
+        );
+    }
+
+    $allowed_installments = array();
+    if($this->enable_meses){
+        $total = (float) WC()->cart->total;
+        foreach (array_keys($this->lang_options['monthly_installments']) as $month ) {
+            if(!empty($this->settings['amount_monthly_install'])){
+                $elegible = $total >= (int) $this->settings['amount_monthly_install'];
+            }else{
+                switch( $month ) {
+                    case 3 : $elegible = $total >= 300; break;
+                    case 6 : $elegible = $total >= 600; break;
+                    case 9 : $elegible = $total >= 900; break;
+                    case 12 : $elegible = $total >= 1200; break;
+                    case 18 : $elegible = $total >= 1800; break;
+                }
+            }
+            if($month <= $this->ckpg_find_last_month() && $elegible){
+                $allowed_installments[] = $month;
+            }
+        }
+    }
+
+    $validOrderWithCheckout = array(
+        'line_items'=> $line_items,
+        'shipping_lines' => array(
+            array("amount" => 0)
+        ),
+        'shipping_contact'=> array(
+            "phone" => (strlen($customer['phone']) > 10) ? '0000000000' : $customer['phone'],
+            "receiver" => $customer['name'],
+            "address" => array(
+              "street1" => (empty(WC()->session->customer['shipping_address_1'])) ? 'New Street 123' : WC()->session->customer['shipping_address_1'],
+              "country" => (empty(WC()->session->customer['shipping_country'])) ? 'AA' : WC()->session->customer['shipping_country'],
+              "postal_code" => (empty(WC()->session->customer['shipping_postcode'])) ? '00000' : WC()->session->customer['shipping_postcode']
+            )
+        ),
+        'checkout' => array(
+            'allowed_payment_methods' => array("card"),
+            'monthly_installments_enabled' => !empty($allowed_installments),
+            'monthly_installments_options' => $allowed_installments,
+            "on_demand_enabled" => ($this->enable_save_card == 'yes')
+        ),
+        'customer_info' => array(
+            'customer_id'   =>  $customer['id'],
+            'name' =>  $customer['name'],    
+            'email' => $customer['email'],    
+            'phone' => (strlen($customer['phone']) > 10) ? '0000000000' : $customer['phone']
+        ),
+        'currency'    => 'mxn',
+        'metadata'    => array('test' => 'extra info')
+    );
+    if ((float) WC()->cart->total >= self::MINIMUM_CARD_PAYMENT ){
+        $checkout = WC()->checkout();
+        $order_id = $checkout->create_order($checkout->get_posted_data());
+        $this->current_order = new WC_Order($order_id);
+        $order = \Conekta\Order::create($validOrderWithCheckout);
+    }
+        
 ?>
-    <div class="credit-card-payment" style="<?php echo (empty( $customer_id ) || empty($sources))? '': 'display:none'?>"> 
-    
-    <div class="form-row form-row-wide">
-        <label for="conekta-card-number"><?php echo esc_html($this->lang_options["card_number"]); ?><span class="required">*</span></label>
-        <input id="conekta-card-number" class="input-text" type="text" data-conekta="card[number]" />
-    </div>
-
-    <div class="form-row form-row-wide">
-        <label for="conekta-card-name"> <?php echo esc_html($this->lang_options["card_name"]); ?><span class="required">*</span></label>
-        <input id="conekta-card-name" type="text" data-conekta="card[name]" class="input-text" />
-    </div>
-
-    <div class="clear"></div>
-
-    <p class="form-row form-row-first">
-        <label for="card_expiration"><?php echo esc_html($this->lang_options["month_options"]) ?> <span class="required">*</span></label>
-        <select id="card_expiration" data-conekta="card[exp_month]" class="month" autocomplete="off">
-            <option selected="selected" value=""><?php echo esc_html($this->lang_options["month"]) ?></option>
-            <?php foreach ($this->lang_options["card_expiration"] as $month => $description) : ?>
-            <option value="<?php echo esc_html($month); ?>"><?php echo esc_html($description); ?></option>
-            <?php endforeach; ?>
-        </select>
+<?php if ((float) WC()->cart->total >= self::MINIMUM_CARD_PAYMENT ) : ?>
+    <script type="text/javascript" src="https://cdn.conekta.io/js/latest/conekta.js"></script>
+    <script type="text/javascript" src="https://pay.conekta.com/v1.0/js/conekta-checkout.min.js"></script>
+    <div id="conektaIframeContainer" style="height: 90rem; width: 100%;"></div>
+    <script>
+        //Conekta.setPublishableKey("<?php echo $this->publishable_key ?>");
+        let order_button = document.getElementById('place_order');
+        if(order_button)
+            order_button.style.display = "none";
+        /*
+        let form_card = document.querySelector('form.checkout,form#order_review');
+        Conekta.token.create({
+            "card": {
+            "number": "4242424242424242",
+            "name": "Fulanito Pérez",
+            "exp_year": "2020",
+            "exp_month": "12",
+            "cvc": "123"
+            },
+            "checkout": {"returns_control_on": ​"Token"}
+        }, 
+            (tok) => {console.log("TOK", tok)}, (err) => {console.log("ERROR", err)});
+        */
+        window.ConektaCheckoutComponents.Integration({
+            targetIFrame: "#conektaIframeContainer",
+            checkoutRequestId: "<?php echo $order->checkout['id'] ?>",
+            publicKey: "<?php echo $this->publishable_key ?>",
+            paymentMethods: ["Card"],
+            options: {
+                button: {
+                    buttonPayText:  `Pago de $${<?php echo WC()->cart->total ?>}`
+                },
+                paymentMethodInformation: {
+                    bankTransferText:  '',
+                    cashText: "",
+                    display: true,
+                },
+                theme: 'default', // 'blue' | 'dark' | 'default' | 'green' | 'red'
+                styles: {
+                    fontSize: 'baseline', // 'baseline' | 'compact'
+                    inputType: 'rounded', // 'basic' | 'rounded' | 'line'
+                    buttonType: 'sharp' // 'basic' | 'rounded' | 'sharp'
+                }
+            },
+            onCreateTokenSucceeded: function (token) {},
+            onCreateTokenError: function (error) {},
+            onFinalizePayment: function(event){
+                order_button.click()
+            },
+            onErrorPayment: function(event) {}
+        })
+    </script>
+<?php else : ?>
+    <p class="form-row">
+        No se pueden hacer pagos con tarjeta para montos menores a $<?php echo self::MINIMUM_CARD_PAYMENT ?>.
     </p>
-    <p class="form-row form-row-last">
-        <label><?php echo esc_html($this->lang_options["year_options"]) ?><span class="required">*</span></label>
-        <select id="card_expiration_yr" data-conekta="card[exp_year]" class="year" autocomplete="off">
-            <option selected="selected" value=""> <?php echo esc_html($this->lang_options["year"]) ?></option>
-            <?php
-            $start_year = (integer)date("Y");
-            $end_year = (integer)date("Y", strtotime("+10 years"));
-            for ($i = $start_year; $i <= $end_year; $i++) : ?>
-            <option value="<?php echo $i; ?>"><?php echo $i; ?></option>
-            <?php endfor; ?>
-        </select>
-    </p>
-
-    <div class="clear"></div>
-
-    <p class="form-row form-row-first">
-        <label for="conekta-card-cvc">CVC <span class="required">*</span></label>
-        <input id="conekta-card-cvc" class="input-text" type="text" maxlength="4" data-conekta="card[cvc]" value="" style="border-radius:6px" />
-    </p>
-
-    <?php if ($this->enable_meses) : ?>
-    <p class="form-row form-row-last">
-        <label><?php echo esc_html($this->lang_options["payment_type"]) ?><span class="required">*</span></label>
-        <select id="monthly_installments" name="monthly_installments" autocomplete="off">
-            <option selected="selected" value="1"><?php echo esc_html($this->lang_options["single_payment"]) ?></option>
-            <?php foreach ($this->lang_options["monthly_installments"] as $months => $description) : ?>
-            <option value="<?php echo esc_html($months); ?>"><?php echo esc_html($description); ?></option>
-            <?php endforeach; ?>
-        </select>
-    </p>
-    <?php endif; ?>
-    <?php if (isset($this->enable_save_card ) && $this->enable_save_card != "no") : ?>
-        <p class="form-row form-row-wide">
-        <label for="conekta-card-save"></label>
-        <input id="conekta-card-save"  type="checkbox" value="<?php echo ($this->enable_save_card)? '1': '0' ?>" name="conekta-card-save" <?php echo ($this->enable_save_card)? 'checked': '' ?>> <?php echo esc_html($this->lang_options["enable_save_card"]); ?></input>
-    </p>
-    <?php endif; ?>
-    </div>
-<?php
-?>
-<div class = "customer-payment-sources" style="<?php echo ( !empty( $customer ) || !empty($sources))? '': 'display:none'?>" >
-    <ul class="">
-        <?php if(!empty($customer)) :
-
-            foreach( $customer->payment_sources as $info_card): ?>
-                <?php if(in_array($info_card->id, $sources)) :?>
-                <li class="payment_sources_card">
-                    <div class="info_card">
-                        <a class="conekta_delete_card" id=<?php echo "delete_payment_card_" .$info_card->id ?> value="<?php echo $info_card->id ?>"><img src="<?php echo plugin_dir_url(__DIR__) . 'images/icons/trash-alt-solid.svg' ?>" alt="X" onclick="ckpg_delete_card('<?php echo $info_card->id ?>')"/></a>
-                        <span class="spinner is-active" id="ckpg_checkout_delete_loader-gif"><img src="/wp-admin/images/spinner.gif" alt="delete..."></span>
-                        <input id="<?php echo "radio_input_" . $info_card->id ?>" type="radio" class="radio_payment_source" name="payment_card" value="<?php echo $info_card->id ?>" <?php echo ( $customer->default_payment_source_id == $info_card->id )? "checked" : "" ?>>
-                        <label for="<?php echo esc_html("radio_input_" . $info_card->id) ?>"><strong><?php echo esc_html($info_card->customer['name'])?></strong></label>
-                        <p class="card_details"><img src="<?php echo esc_html( plugin_dir_url(__DIR__) .'images/icons/' . $info_card->brand .'.svg')?>" alt="<?php echo esc_html( $info_card->brand )?>"><?php echo esc_html( $this->lang_options["card_termination"]) ?> <strong>**** <?php echo esc_html($info_card->last4) ?></strong> </p>
-                    </div>
-                </li> 
-                <?php endif; ?>
-            <?php endforeach ?>
-        <?php endif; ?>
-    </ul>
-    <?php if( !empty( $customer_id ) && !empty( $sources ) ) : ?>
-    <div class="content_new_card">
-        <a id="new_payment_card" onclick="ckpg_add_card()"><strong><?php echo esc_html( $this->lang_options["enter_card_details"]) ?></strong></a>
-    </div>
-    <?php endif; ?>
-</div>
+<?php endif ?>
 <div class="clear"></div> 

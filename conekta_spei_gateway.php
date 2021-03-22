@@ -241,7 +241,7 @@ class WC_Conekta_Spei_Gateway extends WC_Conekta_Plugin
         }
 
         $order_details = ckpg_check_balance($order_details, $amount);
-
+        
         try {
             $conekta_order_id = get_post_meta($this->order->get_id(), 'conekta-order-id', true);
             if (!empty($conekta_order_id)) {

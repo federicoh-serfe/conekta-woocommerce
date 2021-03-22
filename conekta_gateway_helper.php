@@ -377,5 +377,5 @@ function validate_total($total='')
         return (float) $total * 100;
     }
 
-    return total;
+    return $total;
 }
