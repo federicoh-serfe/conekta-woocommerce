@@ -67,6 +67,17 @@ function ckpg_conekta_activation() {
     ) $charset_collate;";
 
     $wpdb->get_results($sql);
+
+    $order_sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}woocommerce_conekta_unfinished_orders (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        customer_id VARCHAR(255) NOT NULL,
+        cart_hash VARCHAR(255) NOT NULL,
+        order_id VARCHAR(255) NOT NULL,
+        status_name VARCHAR(255) NOT NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
+
+    $wpdb->get_results($order_sql);
 }
 
 register_activation_hook(__FILE__, 'ckpg_conekta_activation');
@@ -87,5 +98,9 @@ function ckpg_conekta_checkout_custom_scripts_and_styles() {
     wp_enqueue_script('conekta_checkout_js');
     wp_localize_script('conekta_checkout_js', 'conekta_checkout_js',['ajaxurl' => admin_url( 'admin-ajax.php' )]);
     
+    wp_register_script('tokenize', WP_PLUGIN_URL . "/" . plugin_basename(dirname(__FILE__)) .'/assets/js/tokenize.js', array('jquery'), '1.0', true); //check import convention
+    wp_enqueue_script('tokenize');
+    wp_localize_script('tokenize', 'tokenize',['ajaxurl' => admin_url( 'admin-ajax.php' )]);
+
 }
 add_action( 'wp_enqueue_scripts','ckpg_conekta_checkout_custom_scripts_and_styles');

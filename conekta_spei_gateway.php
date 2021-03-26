@@ -202,89 +202,18 @@ class WC_Conekta_Spei_Gateway extends WC_Conekta_Plugin
         include_once('templates/spei.php');
     }
 
-    protected function ckpg_send_to_conekta()
+    protected function ckpg_set_as_paid()
     {
-        global $woocommerce;
-        include_once('conekta_gateway_helper.php');
-        \Conekta\Conekta::setApiKey($this->secret_key);
-        \Conekta\Conekta::setApiVersion('2.0.0');
-        \Conekta\Conekta::setPlugin($this->name);
-        \Conekta\Conekta::setPluginVersion($this->version);
-        \Conekta\Conekta::setLocale('es');
-
-        $data             = ckpg_get_request_data($this->order);
-        $amount           = (int) $data['amount'];
-        $items            = $this->order->get_items();
-        $taxes            = $this->order->get_taxes();
-        $line_items       = ckpg_build_line_items($items, parent::ckpg_get_version());
-        $discount_lines   = ckpg_build_discount_lines($data);
-        $shipping_lines   = ckpg_build_shipping_lines($data);
-        $shipping_contact = ckpg_build_shipping_contact($data);
-        $tax_lines        = ckpg_build_tax_lines($taxes);
-        $customer_info    = ckpg_build_customer_info($data);
-        $order_metadata   = ckpg_build_order_metadata($data);
-        $order_details    = array(
-            'currency'         => $data['currency'],
-            'line_items'       => $line_items,
-            'customer_info'    => $customer_info,
-            'shipping_lines'   => $shipping_lines,
-            'discount_lines'   => $discount_lines,
-            'tax_lines'        => $tax_lines
-        );
-
-        if (!empty($shipping_contact)) {
-            $order_details = array_merge($order_details, array('shipping_contact' => $shipping_contact));
-        }
-
-        if (!empty($order_metadata)) {
-            $order_details = array_merge($order_details, array('metadata' => $order_metadata));
-        }
-
-        $order_details = ckpg_check_balance($order_details, $amount);
-        
-        try {
-            $conekta_order_id = get_post_meta($this->order->get_id(), 'conekta-order-id', true);
-            if (!empty($conekta_order_id)) {
-                $order = \Conekta\Order::find($conekta_order_id);
-                $order->update($order_details);
-            } else {
-                $order = \Conekta\Order::create($order_details);
-            }
-
-            update_post_meta($this->order->get_id(), 'conekta-order-id', $order->id);
-
-            $charge_details = array(
-                'payment_method' => array('type' => 'spei'),
-                'amount'         => $amount
-            );
-
-            $charge               = $order->createCharge($charge_details);
-            $this->transaction_id = $charge->id;
-
-            update_post_meta( $this->order->get_id(), 'conekta-id', $charge->id );
-            update_post_meta( $this->order->get_id(), 'conekta-creado', $charge->created_at );
-            update_post_meta( $this->order->get_id(), 'conekta-expira', $charge->payment_method->expires_at );
-            update_post_meta( $this->order->get_id(), 'conekta-clabe', $charge->payment_method->clabe );
-            return true;
-        } catch(\Conekta\Handler $e) {
-            $description = $e->getMessage();
-
-            global $wp_version;
-            if (version_compare($wp_version, '4.1', '>=')) {
-                wc_add_notice(__('Error: ', 'woothemes') . $description , $notice_type = 'error');
-            } else {
-                error_log('Gateway Error:' . $description . "\n");
-                $woocommerce->add_error(__('Error: ', 'woothemes') . $description);
-            }
-            return false;
-        }
+        $current_order_id = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash());
+        WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $current_order_id, 'paid' );
+        return true;
     }
 
     public function process_payment($order_id)
     {
         global $woocommerce;
         $this->order        = new WC_Order($order_id);
-        if ($this->ckpg_send_to_conekta())
+        if ($this->ckpg_set_as_paid())
             {
                 // Mark as on-hold (we're awaiting the notification of payment)
                 $this->order->update_status('on-hold', __( 'Awaiting the conekta SPEI payment', 'woocommerce' ));
@@ -369,3 +298,102 @@ function ckpg_conektacheckout_add_spei_gateway($methods)
 
 add_filter('woocommerce_payment_gateways',                      'ckpg_conektacheckout_add_spei_gateway');
 add_action('woocommerce_order_status_processing_to_completed',  'ckpg_conekta_spei_order_status_completed' );
+
+function ckpg_create_spei_order()
+    {
+        global $woocommerce;
+        try{
+            $gateway = WC()->payment_gateways->get_available_payment_gateways()['conektaspei'];
+            \Conekta\Conekta::setApiKey($gateway->secret_key);
+            \Conekta\Conekta::setApiVersion('2.0.0');
+            \Conekta\Conekta::setPlugin($gateway->name);
+            \Conekta\Conekta::setPluginVersion($gateway->version);
+            \Conekta\Conekta::setLocale('es');
+            
+            $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash());
+            if(empty($old_order)){
+
+                $customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata(get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID);
+                
+                if(!empty($customer_id)){
+                    $customer = \Conekta\Customer::find($customer_id); 
+                }else{
+                    $curstomerData = array(
+                        'name' => $_POST['name'],
+                        'email' => $_POST['email'],
+                        'phone' => $_POST['phone']
+                    );
+                    $customer = \Conekta\Customer::create($curstomerData);
+                }
+                
+                $checkout = WC()->checkout();
+                $posted_data = $checkout->get_posted_data();
+                $wc_order    = wc_get_order( $checkout->create_order($posted_data) );
+                $data = ckpg_get_request_data($wc_order);
+                $amount = (int) $data['amount'];
+                $items  = $wc_order->get_items();
+                $taxes  = $wc_order->get_taxes();
+                $line_items       = ckpg_build_line_items($items, $gateway->ckpg_get_version());
+                $discount_lines   = ckpg_build_discount_lines($data);
+                $shipping_lines   = ckpg_build_shipping_lines($data);
+                $tax_lines        = ckpg_build_tax_lines($taxes);
+                $order_metadata   = ckpg_build_order_metadata($data);
+
+                $order_details = array(
+                    'line_items'=> $line_items,
+                    'shipping_lines' => $shipping_lines,
+                    'tax_lines' => $tax_lines,
+                    'discount_lines'   => $discount_lines,
+                    'shipping_contact'=> array(
+                        "phone" => $customer['phone'],
+                        "receiver" => $customer['name'],
+                        "address" => array(
+                        "street1" => $_POST['address_1'],
+                        "street2" => $_POST['address_2'],
+                        "country" => $_POST['country'],
+                        "postal_code" => $_POST['postcode']
+                        )
+                    ),
+                    'checkout' => array(
+                        'allowed_payment_methods' => array("card","cash","bank_transfer"),
+                        'monthly_installments_enabled' => false,
+                        'monthly_installments_options' => array(),
+                        "on_demand_enabled" => false
+                    ),
+                    'customer_info' => array(
+                        'customer_id'   =>  $customer['id'],
+                        'name' =>  $customer['name'],    
+                        'email' => $customer['email'],    
+                        'phone' => $customer['phone']
+                    ),
+                    'metadata' => $order_metadata,
+                    'currency' => $data['currency']
+                );
+                $order_details = ckpg_check_balance($order_details, $amount);
+                $order = \Conekta\Order::create($order_details);
+                WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order['payment_status'] );
+            }else{
+                $order = \Conekta\Order::find($old_order);
+            }
+            $response = array(
+                'checkout_id'  => $order->checkout['id'],
+                'key' => $gateway->secret_key,
+                'price' => WC()->cart->total,
+                'spei_text' => $gateway->settings['description']
+            );
+        } catch(\Conekta\Handler $e) {
+            $description = $e->getMessage();
+            global $wp_version;
+            if (version_compare($wp_version, '4.1', '>=')) {
+                wc_add_notice(__('Error: ', 'woothemes') . $description , $notice_type = 'error');
+            } else {
+                error_log('Gateway Error:' . $description . "\n");
+                $woocommerce->add_error(__('Error: ', 'woothemes') . $description);
+            }
+            $response = array(
+                'error' => $e->getMessage()
+            );
+        }
+        wp_send_json($response);
+    }
+add_action( 'wp_ajax_nopriv_ckpg_create_spei_order','ckpg_create_spei_order');

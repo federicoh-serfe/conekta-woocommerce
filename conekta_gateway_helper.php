@@ -379,3 +379,4 @@ function validate_total($total='')
 
     return $total;
 }
+
