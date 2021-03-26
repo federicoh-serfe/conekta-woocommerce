@@ -12,12 +12,11 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
 {
     protected $GATEWAY_NAME              = "WC_Conekta_Card_Gateway";
     protected $is_sandbox                = true;
-    public $order                     = null;
+    protected $order                     = null;
     protected $transaction_id            = null;
     protected $conekta_order_id          = null;
     protected $transaction_error_message = null;
     protected $currencies                = array('MXN', 'USD');
-    public $current_order_id = null;
 
     public function __construct() {
  	    global $woocommerce;
