@@ -390,7 +390,7 @@ function ckpg_create_cash_order()
                 $discount_lines   = ckpg_build_discount_lines($data);
                 $shipping_lines   = ckpg_build_shipping_lines($data);
                 $tax_lines        = ckpg_build_tax_lines($taxes);
-                $order_metadata   = ckpg_build_order_metadata($data);
+                $order_metadata   = ckpg_build_order_metadata($wc_order, $gateway->settings);
 
                 $order_details = array(
                     'line_items'=> $line_items,
@@ -411,6 +411,9 @@ function ckpg_create_cash_order()
                         'allowed_payment_methods' => array("card","cash","bank_transfer"),
                         'monthly_installments_enabled' => false,
                         'monthly_installments_options' => array(),
+                        "type" =>"Integration",
+                        "force_3ds_flow" => true,
+                        "multifactor_authentication" => true,
                         "on_demand_enabled" => false
                     ),
                     'customer_info' => array(

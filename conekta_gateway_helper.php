@@ -44,20 +44,52 @@ function ckpg_check_balance($order, $total) {
  * Build the line items hash
  * @param array $items
  */
-function ckpg_build_order_metadata($data)
+function ckpg_build_order_metadata($data, $settings)
 {
     $metadata = array(
-        'reference_id' => $data['order_id']
+        'reference_id' => $data->get_id()
     );
 
-    if (!empty($data['customer_message'])) {
-        $metadata = array_merge(
-            $metadata, array(
-                'customer_message' => $data['customer_message'])
-        );
+    $customer_note = $data->get_customer_note();
+    if (!empty($customer_note)) {
+        $metadata = array_merge( $metadata, array('customer_message' => $data->get_customer_note()));
     }
-
+    foreach($settings["order_metadata"] as $order_meta){
+        $metadata = array_merge( $metadata, array($order_meta => $data->$order_meta));
+    }
+    if(!empty($settings["product_metadata"])){ 
+        $items = $data->get_items();
+        foreach($items as $item){
+            $index ='product-'.$item['product_id'];
+            $metadata[$index] = '';
+            foreach($settings["product_metadata"] as $product_meta){
+                $metadata[$index] .= ckpg_recursive_build_product_metadata($item[$product_meta], $product_meta);
+            }
+            $metadata[$index] = substr($metadata[$index], 0, -2);
+        }
+    }
     return $metadata;
+}
+
+function ckpg_recursive_build_product_metadata($data_object, $key){
+    $string = '';
+    if(gettype($data_object) == 'array'){
+        foreach(array_keys($data_object) as $data_key){
+            $key_concat = strval($key).'-'.strval($data_key);
+            if(empty($data_object[$data_key])){
+                $string .= strval($key_concat) . ': NULL | ';
+            }else{
+                $string .= ckpg_recursive_build_product_metadata($data_object[$data_key], $key_concat);
+            }
+        }
+    }else{
+        if(empty($data_object)){
+            $string .= strval($key) . ': NULL | ';
+        }else{
+            $string .= strval($key) . ': ' . strval($data_object) . ' | ';
+        }
+    }
+    return $string;
 }
 
 function ckpg_build_line_items($items, $version)

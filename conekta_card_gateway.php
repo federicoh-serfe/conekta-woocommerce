@@ -575,7 +575,7 @@ function ckpg_create_card_order()
                 $discount_lines   = ckpg_build_discount_lines($data);
                 $shipping_lines   = ckpg_build_shipping_lines($data);
                 $tax_lines        = ckpg_build_tax_lines($taxes);
-                $order_metadata   = ckpg_build_order_metadata($data);
+                $order_metadata   = ckpg_build_order_metadata($wc_order, $gateway->settings);
 
                 $allowed_installments = array();
                 if($gateway->enable_meses){
@@ -607,10 +607,10 @@ function ckpg_create_card_order()
                         "phone" => $customer['phone'],
                         "receiver" => $customer['name'],
                         "address" => array(
-                        "street1" => $_POST['address_1'],
-                        "street2" => $_POST['address_2'],
-                        "country" => $_POST['country'],
-                        "postal_code" => $_POST['postcode']
+                            "street1" => $_POST['address_1'],
+                            "street2" => $_POST['address_2'],
+                            "country" => $_POST['country'],
+                            "postal_code" => $_POST['postcode']
                         )
                     ),
                     'checkout' => array(
