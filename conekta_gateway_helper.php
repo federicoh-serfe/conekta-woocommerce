@@ -70,7 +70,6 @@ function ckpg_build_order_metadata($data, $settings)
     }
     return $metadata;
 }
-
 function ckpg_recursive_build_product_metadata($data_object, $key){
     $string = '';
     if(gettype($data_object) == 'array'){
