@@ -411,9 +411,6 @@ function ckpg_create_cash_order()
                         'allowed_payment_methods' => array("card","cash","bank_transfer"),
                         'monthly_installments_enabled' => false,
                         'monthly_installments_options' => array(),
-                        "type" =>"Integration",
-                        "force_3ds_flow" => true,
-                        "multifactor_authentication" => true,
                         "on_demand_enabled" => false
                     ),
                     'customer_info' => array(
