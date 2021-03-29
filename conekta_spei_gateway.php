@@ -40,6 +40,7 @@ class WC_Conekta_Spei_Gateway extends WC_Conekta_Plugin
                                  $this->live_api_key;
 
         $this->lang_options = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
+        wp_enqueue_script('conekta_spei_gateway', WP_PLUGIN_URL."/".plugin_basename(dirname(__FILE__)).'/assets/js/conekta_spei_gateway.js', array( 'jquery' ), '1.0', true);
 
         add_action(
             'woocommerce_update_options_payment_gateways_' . $this->id ,
@@ -92,6 +93,18 @@ class WC_Conekta_Spei_Gateway extends WC_Conekta_Plugin
     public function ckpg_init_form_fields()
     {
         //Posiblemente hay que cambiar __('','') por define('','') para la versión mas reciente de PHP
+        $elements = (new WC_Order())->get_data_keys();
+        sort($elements);
+        $order_metadata = array();
+        foreach($elements as $key => $value){
+            $order_metadata[$value] = $value;
+        }
+        $elements = (new WC_Order_Item_Product())->get_data_keys();
+        sort($elements);
+        $product_metadata = array();
+        foreach($elements as $key => $value){
+            $product_metadata[$value] = $value;
+        }
         $this->form_fields = array(
             'enabled' => array(
                 'type'        => 'checkbox',
@@ -146,6 +159,18 @@ class WC_Conekta_Spei_Gateway extends WC_Conekta_Plugin
                 'default' =>__( 'Por favor realiza el pago en el portal de tu banco utilizando los datos que te enviamos por correo.', 'woocommerce' ),
                 'desc_tip' => true,
             ),
+            'order_metadata' => array(
+                'title' => __( 'Additional Order Metadata', 'woocommerce' ),
+                'type' => 'multiselect',
+                'description' => __('More than one option can be chosen.', 'woocommerce'),
+                'options' => $order_metadata
+            ),
+            'product_metadata' => array(
+                'title' => __( 'Additional Product Metadata', 'woocommerce' ),
+                'type' => 'multiselect',
+                'description' => __('More than one option can be chosen.', 'woocommerce'),
+                'options' => $product_metadata
+            )
         );
     }
 
@@ -304,6 +329,7 @@ function ckpg_create_spei_order()
         global $woocommerce;
         try{
             $gateway = WC()->payment_gateways->get_available_payment_gateways()['conektaspei'];
+            $card_gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
             \Conekta\Conekta::setApiKey($gateway->secret_key);
             \Conekta\Conekta::setApiVersion('2.0.0');
             \Conekta\Conekta::setPlugin($gateway->name);
@@ -324,6 +350,27 @@ function ckpg_create_spei_order()
                         'phone' => $_POST['phone']
                     );
                     $customer = \Conekta\Customer::create($curstomerData);
+                }
+
+                $allowed_installments = array();
+                if($card_gateway->enable_meses){
+                    $total = (float) WC()->cart->total;
+                    foreach (array_keys($card_gateway->lang_options['monthly_installments']) as $month ) {
+                        if(!empty($card_gateway->settings['amount_monthly_install'])){
+                            $elegible = $total >= (int) $card_gateway->settings['amount_monthly_install'];
+                        }else{
+                            switch( $month ) {
+                                case 3 : $elegible = $total >= 300; break;
+                                case 6 : $elegible = $total >= 600; break;
+                                case 9 : $elegible = $total >= 900; break;
+                                case 12 : $elegible = $total >= 1200; break;
+                                case 18 : $elegible = $total >= 1800; break;
+                            }
+                        }
+                        if($month <= $card_gateway->ckpg_find_last_month() && $elegible){
+                            $allowed_installments[] = $month;
+                        }
+                    }
                 }
                 
                 $checkout = WC()->checkout();
@@ -356,9 +403,9 @@ function ckpg_create_spei_order()
                     ),
                     'checkout' => array(
                         'allowed_payment_methods' => array("card","cash","bank_transfer"),
-                        'monthly_installments_enabled' => false,
-                        'monthly_installments_options' => array(),
-                        "on_demand_enabled" => false
+                        'monthly_installments_enabled' => !empty($allowed_installments),
+                        'monthly_installments_options' => $allowed_installments,
+                        "on_demand_enabled" => ($card_gateway->enable_save_card == 'yes')
                     ),
                     'customer_info' => array(
                         'customer_id'   =>  $customer['id'],
@@ -369,6 +416,7 @@ function ckpg_create_spei_order()
                     'metadata' => $order_metadata,
                     'currency' => $data['currency']
                 );
+                error_log(print_r($order_details,true));
                 $order_details = ckpg_check_balance($order_details, $amount);
                 $order = \Conekta\Order::create($order_details);
                 WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order['payment_status'] );
@@ -397,3 +445,4 @@ function ckpg_create_spei_order()
         wp_send_json($response);
     }
 add_action( 'wp_ajax_nopriv_ckpg_create_spei_order','ckpg_create_spei_order');
+add_action( 'wp_ajax_ckpg_create_spei_order','ckpg_create_spei_order');
