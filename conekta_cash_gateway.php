@@ -79,7 +79,7 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
         $order_id      = $conekta_order['metadata']['reference_id'];
         $paid_at       = date("Y-m-d", $charge['paid_at']);
         $order         = new WC_Order($order_id);
-
+        
         if($charge['payment_method']['type'] === "oxxo"){
             if (strpos($event['type'], "order.paid") !== false)
             {
@@ -397,12 +397,12 @@ function ckpg_create_cash_order()
                 if(!empty($customer_id)){
                     $customer = \Conekta\Customer::find($customer_id); 
                 }else{
-                    $curstomerData = array(
+                    $customerData = array(
                         'name' => $_POST['name'],
                         'email' => $_POST['email'],
                         'phone' => $_POST['phone']
                     );
-                    $customer = \Conekta\Customer::create($curstomerData);
+                    $customer = \Conekta\Customer::create($customerData);
                 }
 
                 $allowed_installments = array();
@@ -469,7 +469,6 @@ function ckpg_create_cash_order()
                     'metadata' => $order_metadata,
                     'currency' => $data['currency']
                 );
-                error_log(print_r($order_details,true));
                 $order_details = ckpg_check_balance($order_details, $amount);
                 $order = \Conekta\Order::create($order_details);
                 WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order['payment_status'] );

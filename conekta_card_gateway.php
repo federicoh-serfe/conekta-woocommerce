@@ -124,7 +124,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $order_id      = $conekta_order['metadata']['reference_id'];
         $paid_at       = date("Y-m-d", $charge['paid_at']);
         $order         = new WC_Order($order_id);
-
+        
          if(strpos($event['type'], "order.refunded") !== false)  { 
             $order->update_status('refunded', __( 'Order has been refunded', 'woocommerce' ));
         } elseif(strpos($event['type'], "order.partially_refunded") !== false || strpos($event['type'], "charge.partially_refunded") !== false) {
@@ -579,13 +579,12 @@ function ckpg_create_card_order()
                 if(!empty($customer_id)){
                     $customer = \Conekta\Customer::find($customer_id); 
                 }else{
-                    $curstomerData = array(
+                    $customerData = array(
                         'name' => $_POST['name'],
                         'email' => $_POST['email'],
                         'phone' => $_POST['phone']
                     );
-                    $customer = \Conekta\Customer::create($curstomerData);
-                    
+                    $customer = \Conekta\Customer::create($customerData);
                 }
                 $checkout = WC()->checkout();
                 $posted_data = $checkout->get_posted_data();
