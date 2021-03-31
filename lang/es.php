@@ -33,5 +33,7 @@
 		"oxxo" => "Por favor realiza el pago en el OXXO más cercano utilizando la ficha de pago. Dale clic para generar la ficha de pago con la referencia.",
 		"enable_save_card" => "¿Deseas guardar la información de tu tarjeta?",
 		"card_termination" => "Tarjeta de crédito con terminación",
-		"enter_card_details" => "+ INGRESAR LOS DATOS DE SU TARJETA DE CRÉDITO O DÉBITO"
+		"enter_card_details" => "+ INGRESAR LOS DATOS DE SU TARJETA DE CRÉDITO O DÉBITO",
+		"enter_customer_details" => "Complete los datos de facturación antes de efectuar el pago.",
+		"order_too_little" => "No se pueden efectuar pagos por importes inferiores a "
 	);
