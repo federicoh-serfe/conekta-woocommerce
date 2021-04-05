@@ -26,6 +26,7 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway
 	const CONEKTA_CUSTOMER_ID = 'conekta_customer_id';
 	const CONEKTA_PAYMENT_SOURCES_ID = 'conekta_payment_source_id';
 	const CONEKTA_ON_DEMAND_ENABLED = 'conekta_on_demand_enabled';
+	const MINIMUM_ORDER_AMOUNT = 20;
 
 	public function ckpg_get_version()
 	{
