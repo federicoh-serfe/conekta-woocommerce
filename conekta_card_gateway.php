@@ -370,6 +370,9 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     protected function ckpg_set_as_paid()
     {
         $current_order_id = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash());
+        $order = \Conekta\Order::find($current_order_id);
+        $order['metadata']['reference_id'] = $this->order->get_id();
+        $order->update(array('metadata' => $order['metadata'] ));
         WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $current_order_id, 'paid' );
         return true;
     }
