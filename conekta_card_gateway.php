@@ -564,6 +564,8 @@ add_action( 'wp_ajax_ckpg_checkout_delete_card','ckpg_checkout_delete_card');
 function ckpg_create_card_order()
     {
         global $woocommerce;
+        wc_clear_notices();
+        $order_id = null;
         try{
             $gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
             \Conekta\Conekta::setApiKey($gateway->secret_key);
@@ -588,7 +590,8 @@ function ckpg_create_card_order()
                 }
                 $checkout = WC()->checkout();
                 $posted_data = $checkout->get_posted_data();
-				$wc_order    = wc_get_order( $checkout->create_order($posted_data) );
+                $order_id = $checkout->create_order($posted_data);
+                $wc_order = wc_get_order( $order_id );
                 $data = ckpg_get_request_data($wc_order);
                 $amount = (int) $data['amount'];
                 $items  = $wc_order->get_items();
@@ -653,7 +656,7 @@ function ckpg_create_card_order()
                 $order_details = ckpg_check_balance($order_details, $amount);
                 $order = \Conekta\Order::create($order_details);
                 WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order['payment_status'] );
-
+                wp_delete_post($order_id,true);
             }else{
                 $order = \Conekta\Order::find($old_order);
             }
@@ -671,6 +674,9 @@ function ckpg_create_card_order()
             } else {
                 error_log('Gateway Error:' . $description . "\n");
                 $woocommerce->add_error(__('Error: ', 'woothemes') . $description);
+            }
+            if($order_id !== null) {
+                wp_delete_post($order_id,true);
             }
             $response = array(
                 'error' => $e->getMessage()
