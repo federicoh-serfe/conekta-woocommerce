@@ -265,7 +265,7 @@ class WC_Conekta_Cash_Gateway extends WC_Conekta_Plugin
 
     protected function ckpg_set_as_paid()
     {
-        $current_order_id = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash());
+        $current_order_id = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), 'cash-pending');
         $order = \Conekta\Order::find($current_order_id);
         $order['metadata']['reference_id'] = $this->order->get_id();
         $order->update(array('metadata' => $order['metadata'] ));
@@ -394,7 +394,7 @@ function ckpg_create_cash_order()
             \Conekta\Conekta::setPluginVersion($gateway->version);
             \Conekta\Conekta::setLocale('es');
             
-            $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash());
+            $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), 'cash-pending');
             if(empty($old_order)){
 
                 $customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata(get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID);
@@ -477,7 +477,7 @@ function ckpg_create_cash_order()
                 );
                 $order_details = ckpg_check_balance($order_details, $amount);
                 $order = \Conekta\Order::create($order_details);
-                WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order['payment_status'] );
+                WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, 'cash-pending');
                 wp_delete_post($order_id,true);
             }else{
                 $order = \Conekta\Order::find($old_order);

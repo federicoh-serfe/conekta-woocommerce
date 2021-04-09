@@ -202,119 +202,79 @@ const validate_checkout = function () {
             }
         }
     });
-    ["Cash", "Card", "BankTransfer"].forEach( method => {
-        if (valid) {
-            let phone = jQuery("#billing_phone");
-            let first_name = jQuery("#billing_first_name");
-            let last_name = jQuery("#billing_last_name");
-            let email = jQuery("#billing_email");
-            let country = jQuery("#billing_country");
-            let postcode = jQuery("#billing_postcode");
-            let address_1 = jQuery("#billing_address_1");
-            let address_2 = jQuery("#billing_address_2");
-            let company = jQuery("#billing_company");
-            let state = jQuery("#billing_state");
-            let postBody = {
-                phone: phone.val(),
-                name: first_name.val() + " " + last_name.val(),
-                email: email.val(),
-                country: country.val(),
-                postcode: postcode.val(),
-                address_1: address_1.val(),
-                address_2: address_2.val(),
-                company: company.val(),
-                state: state.val(),
-            }
-            let error_id; let container_id;
-            switch(method){
-                case "Cash": {
-                    postBody.action = "ckpg_create_cash_order";
-                    error_id = "conektaBillingFormCashErrorMessage";
-                    container_id = "conektaIframeCashContainer";
-                    break;
-                }
-                case "Card": {
-                    postBody.action = "ckpg_create_card_order";
-                    error_id = "conektaBillingFormErrorMessage";
-                    container_id = "conektaIframeContainer";
-                    break;
-                }
-                case "BankTransfer": {
-                    postBody.action = "ckpg_create_spei_order";
-                    error_id = "conektaBillingFormSpeiErrorMessage";
-                    container_id = "conektaIframeBankContainer";
-                    break;
-                }
-            }
-            let error_container = document.getElementById(error_id);
-            jQuery.post(
-                tokenize.ajaxurl,
-                postBody,
-                function (response) {
-                    if(response.error){
-                        error_container.innerText = response.error
-                    }else{
-                        let container = document.getElementById(container_id);
-                        container.innerHTML = '';
-                        container.style.display = "block";
-                        container.style.height = (method == "Card") ? "90rem" : "70rem";
-                        error_container.style.display = "none";
-                        window.ConektaCheckoutComponents.Integration({
-                            targetIFrame: `#${container_id}`,
-                            checkoutRequestId: response.checkout_id,
-                            publicKey: response.key,
-                            paymentMethods: [method],
-                            options: {
-                            button: {
-                                buttonPayText: `Pago de $${response.price}`,
-                            },
-                            paymentMethodInformation: {
-                                bankTransferText: (method == "BankTransfer") ? response.spei_text : "",
-                                cashText: (method == "Cash") ? response.cash_text : "",
-                                display: true,
-                            },
-                            theme: "default", // 'blue' | 'dark' | 'default' | 'green' | 'red'
-                            styles: {
-                                fontSize: "baseline", // 'baseline' | 'compact'
-                                inputType: "rounded", // 'basic' | 'rounded' | 'line'
-                                buttonType: "sharp", // 'basic' | 'rounded' | 'sharp'
-                            },
-                            },
-                            onFinalizePayment: function (event) {
-                                document.getElementById("place_order").click();
-                            },
-                        });
-                    }
-                }
-            )
-            .error(function (e) {
-              console.error(e)
-            });
-        } else {
-            let error_id; let container_id;
-            switch(method){
-                case "Cash": {
-                    error_id = "conektaBillingFormCashErrorMessage";
-                    container_id = "conektaIframeCashContainer";
-                    break;
-                }
-                case "Card": {
-                    error_id = "conektaBillingFormErrorMessage";
-                    container_id = "conektaIframeContainer";
-                    break;
-                }
-                case "BankTransfer": {
-                    error_id = "conektaBillingFormSpeiErrorMessage";
-                    container_id = "conektaIframeBankContainer";
-                    break;
-                }
-            }
-            let error_container = document.getElementById(error_id);
-            error_container.style.display = "block";
-            let container = document.getElementById(container_id);
-            container.style.display = "none";
+    if (valid) {
+        let phone = jQuery("#billing_phone");
+        let first_name = jQuery("#billing_first_name");
+        let last_name = jQuery("#billing_last_name");
+        let email = jQuery("#billing_email");
+        let country = jQuery("#billing_country");
+        let postcode = jQuery("#billing_postcode");
+        let address_1 = jQuery("#billing_address_1");
+        let address_2 = jQuery("#billing_address_2");
+        let company = jQuery("#billing_company");
+        let state = jQuery("#billing_state");
+        let postBody = {
+            action: "ckpg_create_order",  
+            phone: phone.val(),
+            name: first_name.val() + " " + last_name.val(),
+            email: email.val(),
+            country: country.val(),
+            postcode: postcode.val(),
+            address_1: address_1.val(),
+            address_2: address_2.val(),
+            company: company.val(),
+            state: state.val(),
         }
-    })
+        let error_container = document.getElementById("conektaBillingFormErrorMessage");
+        jQuery.post(
+            tokenize.ajaxurl,
+            postBody,
+            function (response) {
+                if(response.error){
+                    error_container.innerText = response.error
+                }else{
+                    let container = document.getElementById("conektaIframeContainer");
+                    container.innerHTML = '';
+                    container.style.display = "block";
+                    container.style.height = "90rem";
+                    error_container.style.display = "none";
+                    window.ConektaCheckoutComponents.Integration({
+                        targetIFrame: `#conektaIframeContainer`,
+                        checkoutRequestId: response.checkout_id,
+                        publicKey: response.key,
+                        paymentMethods: ["Cash", "Card", "BankTransfer"],
+                        options: {
+                        button: {
+                            buttonPayText: `Pago de $${response.price}`,
+                        },
+                        paymentMethodInformation: {
+                            bankTransferText: response.spei_text,
+                            cashText: response.cash_text,
+                            display: true,
+                        },
+                        theme: "default", // 'blue' | 'dark' | 'default' | 'green' | 'red'
+                        styles: {
+                            fontSize: "baseline", // 'baseline' | 'compact'
+                            inputType: "rounded", // 'basic' | 'rounded' | 'line'
+                            buttonType: "sharp", // 'basic' | 'rounded' | 'sharp'
+                        },
+                        },
+                        onFinalizePayment: function (event) {
+                            document.getElementById("place_order").click();
+                        },
+                    });
+                }
+            }
+        )
+        .error(function (e) {
+          console.error(e)
+        });
+    } else {
+        let error_container = document.getElementById("conektaBillingFormErrorMessage");
+        error_container.style.display = "block";
+        let container = document.getElementById("conektaIframeContainer");
+        container.style.display = "none";
+    }
 };
 let billing_form_card = document.getElementById("customer_details");
 Array.from(billing_form_card.querySelectorAll("input,select")).forEach((e) => {

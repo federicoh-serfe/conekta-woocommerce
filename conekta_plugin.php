@@ -126,24 +126,23 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway
 
 	}
 
-	static public function ckpg_get_conekta_unfinished_order($customer_id, $cart_hash) {
+	static public function ckpg_get_conekta_unfinished_order($customer_id, $cart_hash, $status_name) {
 		global $wpdb;
 	
-		$sql = "SELECT order_id FROM wp_woocommerce_conekta_unfinished_orders WHERE customer_id = '{$customer_id}' AND cart_hash = '{$cart_hash}' AND status_name <> 'paid'";
+		$sql = "SELECT order_id, order_number FROM wp_woocommerce_conekta_unfinished_orders WHERE customer_id = '{$customer_id}' AND cart_hash = '{$cart_hash}' AND status_name = '{$status_name}'";
 		
-		$order_id = $wpdb->get_var($sql);
-	
-		return  $order_id;
+		$order_data = $wpdb->get_results($sql);
+		return  $order_data[0];
 	}
 
-	static public function ckpg_insert_conekta_unfinished_order($user_id, $cart_hash, $order_id, $status_name) {
+	static public function ckpg_insert_conekta_unfinished_order($user_id, $cart_hash, $order_id, $order_number, $status_name) {
 		global $wpdb;
 		
-		if ( empty( WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order($user_id, $cart_hash) ) ){
+		if ( empty( WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order($user_id, $cart_hash, $status_name) ) ){
 
-			$sql = "INSERT INTO wp_woocommerce_conekta_unfinished_orders (customer_id, cart_hash, order_id, status_name) VALUES ('{$user_id}','{$cart_hash}','{$order_id}','{$status_name}')";
+			$sql = "INSERT INTO wp_woocommerce_conekta_unfinished_orders (customer_id, cart_hash, order_id, order_number, status_name) VALUES ('{$user_id}','{$cart_hash}','{$order_id}','{$order_number}','{$status_name}')";
 		} else {
-			$sql ="UPDATE wp_woocommerce_conekta_unfinished_orders SET status_name = '{$status_name}' WHERE customer_id = '{$user_id}' AND cart_hash = '{$cart_hash}' AND order_id = '{$order_id}'";
+			$sql ="UPDATE wp_woocommerce_conekta_unfinished_orders SET status_name = 'paid' WHERE customer_id = '{$user_id}' AND cart_hash = '{$cart_hash}' AND order_id = '{$order_id}' AND order_number = '{$order_number}'";
 		}
 		$wpdb->get_results($sql);
 	}
