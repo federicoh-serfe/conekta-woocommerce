@@ -21,7 +21,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     public function __construct() {
  	    global $woocommerce;
         $this->id = 'conektacard';
-        $this->method_title = __('Conekta Card', 'conektacard');
+        $this->method_title = __('Conekta Payment', 'conektacard');
         $this->has_fields = true;
         $this->ckpg_init_form_fields();
         $this->init_settings();
@@ -42,6 +42,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $this->secret_key           = $this->use_sandbox_api ?  $this->test_api_key : $this->live_api_key;
         $this->lang_options         = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
         $this->enable_save_card = $this->settings['enable_save_card'];
+        $this->account_owner   = $this->settings['account_owner'];
 
         \Conekta\Conekta::setApiKey($this->secret_key);
         \Conekta\Conekta::setApiVersion('2.0.0');
@@ -101,8 +102,21 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             $this->enabled = false;
             }
 
-        add_action('woocommerce_order_refunded',  array($this, 'ckpg_conekta_card_order_refunded'), 10,2);
-        add_action( 'woocommerce_order_partially_refunded', array( $this, 'ckpg_conekta_card_order_partially_refunded'), 10,2);
+            add_action(
+                'woocommerce_thankyou_' . $this->id,
+                array( $this, 'ckpg_thankyou_page')
+            );
+            add_action(
+                'woocommerce_email_before_order_table',
+                array($this, 'ckpg_email_reference')
+            );
+            add_action(
+                'woocommerce_email_before_order_table',
+                array($this, 'ckpg_email_instructions')
+            );
+
+            add_action('woocommerce_order_refunded',  array($this, 'ckpg_conekta_card_order_refunded'), 10,2);
+            add_action( 'woocommerce_order_partially_refunded', array( $this, 'ckpg_conekta_card_order_partially_refunded'), 10,2);
             add_action(
                 'woocommerce_api_' . strtolower(get_class($this)),
                 array($this, 'ckpg_webhook_handler')
@@ -120,20 +134,41 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         $body          = @file_get_contents('php://input');
         $event         = json_decode($body, true);
         $conekta_order = $event['data']['object'];
-        $charge        = $conekta_order['charges']['data'][0];
-        $order_id      = $conekta_order['metadata']['reference_id'];
-        $paid_at       = date("Y-m-d", $charge['paid_at']);
-        $order         = new WC_Order($order_id);
         
-         if(strpos($event['type'], "order.refunded") !== false)  { 
-            $order->update_status('refunded', __( 'Order has been refunded', 'woocommerce' ));
-        } elseif(strpos($event['type'], "order.partially_refunded") !== false || strpos($event['type'], "charge.partially_refunded") !== false) {
-            $refunded_amount = $conekta_order['amount_refunded'] / 100;
-            $refund_args = array('amount' => $refunded_amount, 'reason' => null, 'order_id' => $order_id );
-            $refund = wc_create_refund($refund_args);
-        } elseif(strpos($event['type'], "order.canceled") !== false) {
-	        $order->update_status('cancelled', __( 'Order has been cancelled', 'woocommerce' ));
-	    } 
+        if($conekta_order['object'] == 'order' && array_key_exists("charges",$conekta_order)){
+            $charge        = $conekta_order['charges']['data'][0];
+            $order_id      = $conekta_order['metadata']['reference_id'];
+            $order         = wc_get_order($order_id);
+            if($charge['payment_method']['type'] === "spei" && strpos($event['type'], "order.paid") !== false){
+                $paid_at       = date("Y-m-d", $charge['paid_at']);
+                update_post_meta( $order->get_id(), 'conekta-paid-at', $paid_at);
+                $order->payment_complete();
+                $order->add_order_note(sprintf("Payment completed in Spei and notification of payment received"));
+                parent::ckpg_offline_payment_notification($order_id, $conekta_order['customer_info']['name']);
+            }elseif($charge['payment_method']['type'] === "oxxo"){
+                if (strpos($event['type'], "order.paid") !== false){
+                    $paid_at       = date("Y-m-d", $charge['paid_at']);
+                    update_post_meta($order->get_id(), 'conekta-paid-at', $paid_at);
+                    $order->payment_complete();
+                    $order->add_order_note(sprintf("Payment completed in Oxxo and notification of payment received"));
+                    parent::ckpg_offline_payment_notification($order_id, $conekta_order['customer_info']['name']);
+                }elseif(strpos($event['type'], "order.expired") !== false){
+                    $order->update_status('cancelled', __( 'Oxxo payment has been expired', 'woocommerce' ));
+                }elseif(strpos($event['type'], "order.canceled") !== false){
+                    $order->update_status('cancelled', __( 'Order has been canceled', 'woocommerce' ));
+                }
+            }else{
+                if(strpos($event['type'], "order.refunded") !== false)  { 
+                    $order->update_status('refunded', __( 'Order has been refunded', 'woocommerce' ));
+                } elseif(strpos($event['type'], "order.partially_refunded") !== false || strpos($event['type'], "charge.partially_refunded") !== false) {
+                    $refunded_amount = $conekta_order['amount_refunded'] / 100;
+                    $refund_args = array('amount' => $refunded_amount, 'reason' => null, 'order_id' => $order_id );
+                    wc_create_refund($refund_args);
+                } elseif(strpos($event['type'], "order.canceled") !== false) {
+                    $order->update_status('cancelled', __( 'Order has been cancelled', 'woocommerce' ));
+                }
+            }
+        }
         
     }
 
@@ -283,9 +318,21 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             ),
          'title' => array(
             'type'        => 'text',
-            'title'       => __('Title', 'woothemes'),
+            'title'       => 'Card - ' . __('Title', 'woothemes'),
             'description' => __('This controls the title which the user sees during checkout.', 'woothemes'),
             'default'     => __('Pago con Conekta', 'woothemes')
+            ),
+            'oxxo_title' => array(
+                'type'        => 'text',
+                'title'       => 'OXXO - ' . __('Title', 'woothemes'),
+                'description' => __('This controls the title which the user sees during checkout.', 'woothemes'),
+                'default'     => __('Conekta Pago en Efectivo en Oxxo Pay', 'woothemes')
+            ),
+            'spei_title' => array(
+                'type'        => 'text',
+                'title'       => 'SPEI - ' . __('Title', 'woothemes'),
+                'description' => __('This controls the title which the user sees during checkout.', 'woothemes'),
+                'default'     => __('Pago con SPEI', 'woothemes')
             ),
          'test_api_key' => array(
              'type'        => 'password',
@@ -319,6 +366,55 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             'description' => __('Allow users to save the card for a future purchase.','woothemes'),
             'default'     => __('no', 'woothemes')
             ),
+            'expiration_time' => array(
+                'type'        => 'select',
+                'title'       => __('Expiration time type', 'woothemes'),
+                'label'       => __('Hours', 'woothemes'),
+                'default'     => 'no',
+                'options'     => array(
+                    'hours' => "Hours",
+                    'days' => "Days",
+                ),
+            ),
+            'expiration' => array(
+                'type'        => 'text',
+                'title'       => __('Expiration time (in days or hours) for the reference', 'woothemes'),
+                'default'     => __('1', 'woothemes')
+            ),
+            'account_owner' => array(
+                'type'        => 'Account owner',
+                'title'       => 'SPEI - ' . __('Account owner', 'woothemes'),
+                'description' => __('This will be shown in SPEI success page as account description for CLABE reference', 'woothemes'),
+                'default'     => __('Conekta SPEI', 'woothemes')
+            ),
+            'spei_description' => array(
+                'title' => 'SPEI - ' . __( 'Description', 'woocommerce' ),
+                'type' => 'textarea',
+                'description' => __( 'Payment method description that the customer will see on your checkout.', 'woocommerce' ),
+                'default' =>__( 'Por favor realiza el pago en el portal de tu banco utilizando los datos que te enviamos por correo.', 'woocommerce' ),
+                'desc_tip' => true,
+            ),
+            'spei_instructions' => array(
+                'title' => 'SPEI - ' . __( 'Instructions', 'woocommerce' ),
+                'type' => 'textarea',
+                'description' => __( 'Instructions that will be added to the thank you page and emails.', 'woocommerce' ),
+                'default' =>__( 'Por favor realiza el pago en el portal de tu banco utilizando los datos que te enviamos por correo.', 'woocommerce' ),
+                'desc_tip' => true,
+            ),
+            'oxxo_description' => array(
+                'title' => 'OXXO - ' . __( 'Description', 'woocommerce' ),
+                'type' => 'textarea',
+                'description' => __('Payment method description that the customer will see on your checkout.', 'woocommerce'),
+                'default' =>__('Por favor realiza el pago en el OXXO más cercano utilizando la referencia que se encuentra a continuación.', 'woocommerce' ),
+                'desc_tip' => true,
+            ),
+            'oxxo_instructions' => array(
+                'title' => 'OXXO - ' . __( 'Instructions', 'woocommerce' ),
+                'type' => 'textarea',
+                'description' => __('Instructions that will be added to the thank you page and emails.', 'woocommerce'),
+                'default' =>__('Por favor realiza el pago en el OXXO más cercano utilizando la referencia que se encuentra a continuación.', 'woocommerce'),
+                'desc_tip' => true,
+            ),
             'order_metadata' => array(
                 'title' => __( 'Additional Order Metadata', 'woocommerce' ),
                 'type' => 'multiselect',
@@ -333,6 +429,84 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             )
 
          );
+    }
+
+        /**
+     * Output for the order received page.
+     * @param string $order_id
+     */
+    function ckpg_thankyou_page($order_id) {
+        $order = new WC_Order( $order_id );
+        switch($order->get_payment_method_title()){
+            case $this->settings['oxxo_title']: { 
+                echo '<p style="font-size: 30px"><strong>' . __('Referencia') . ':</strong> ' . get_post_meta( esc_html($order->get_id()), 'conekta-referencia', true ) . '</p>';
+                echo '<p>OXXO cobrará una comisión adicional al momento de realizar el pago.</p>';
+                echo '<p>INSTRUCCIONES:' . $this->settings['oxxo_instructions'] . '</p>';
+                break;
+            }
+            case $this->settings['spei_title']: {
+                echo '<p><h4><strong>' . __('Clabe') . ':</strong> ' . get_post_meta( esc_html($order->get_id()), 'conekta-clabe', true ) . '</h4></p>';
+                echo '<p><h4><strong>' . esc_html(__('Beneficiario')) . ':</strong> ' . $this->account_owner . '</h4></p>';
+                echo '<p><h4><strong>' . esc_html(__('Banco Receptor')) . ':</strong>  Sistema de Transferencias y Pagos (STP)<h4></p>';
+                break;
+            }
+        }
+    }
+
+    /**
+     * Add content to the WC emails.
+     *
+     * @access public
+     * @param WC_Order $order
+     */
+    function ckpg_email_reference($order) {
+        switch($order->get_payment_method_title()){
+            case $this->settings['oxxo_title']: { 
+                if (get_post_meta( $order->get_id(), 'conekta-referencia', true ) != null){
+                    echo '<p style="font-size: 30px"><strong>' . __('Referencia') . ':</strong> ' . get_post_meta( $order->get_id(), 'conekta-referencia', true ) . '</p>';
+                    echo '<p>OXXO cobrará una comisión adicional al momento de realizar el pago.</p>';
+                    echo '<p>INSTRUCCIONES:' . $this->settings['oxxo_instructions'] . '</p>';
+                }
+                break;
+            }
+            case $this->settings['spei_title']: {
+                if (get_post_meta( $order->get_id(), 'conekta-clabe', true ) != null){
+                    echo '<p><h4><strong>' . esc_html(__('Clabe')) . ':</strong> ' . get_post_meta( esc_html($order->get_id()), 'conekta-clabe', true ) . '</h4></p>';
+                    echo '<p><h4><strong>' . esc_html(__('Beneficiario')) . ':</strong> '. $this->account_owner . '</h4></p>';
+                    echo '<p><h4><strong>' . esc_html(__('Banco Receptor')) . ':</strong>  Sistema de Transferencias y Pagos (STP)<h4></p>';
+                }
+                break;
+            }
+        }
+    }
+
+    /**
+     * Add content to the WC emails.
+     *
+     * @access public
+     * @param WC_Order $order
+     * @param bool $sent_to_admin
+     * @param bool $plain_text
+     */
+    public function ckpg_email_instructions( $order, $sent_to_admin = false, $plain_text = false ) {
+        switch($order->get_payment_method_title()){
+            case $this->settings['oxxo_title']: {
+                if (get_post_meta( $order->get_id(), '_payment_method', true ) === $this->id){
+                    $instructions = $this->settings['oxxo_instructions'];
+                    if ( $instructions && 'on-hold' === $order->get_status() ) {
+                        echo wpautop( wptexturize( $instructions['default'] ) ) . PHP_EOL;
+                    }
+                }
+                break;
+            }
+            case $this->settings['spei_title']: {
+                $instructions = $this->settings['spei_instructions'];
+                if ( $instructions && 'on-hold' === $order->get_status() ) {
+                    echo wpautop( wptexturize( $instructions ) ) . PHP_EOL;
+                }
+                break;
+            }
+        }
     }
 
     public function admin_options() {
@@ -367,26 +541,45 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
         }
     }
 
-    protected function ckpg_set_as_paid()
+    public function ckpg_expiration_payment() {
+        $expiration = $this->settings['expiration_time'];
+        switch( $expiration ){
+            case 'hours': 
+                $expiration_cont = 24;
+                $expires_time = 3600;
+            break;
+            case 'days': 
+                $expiration_cont = 32;
+                $expires_time = 86400;
+            break;
+        }
+        if($this->settings['expiration'] > 0 && $this->settings['expiration'] < $expiration_cont){
+            $expires = time() + ($this->settings['expiration'] * $expires_time);
+        }
+        return $expires;
+    }
+
+    protected function ckpg_set_as_paid($current_order_data)
     {
-        error_log(print_r(WC()->session->get( 'order_awaiting_payment' ),true));
-        $current_order_data = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), 'card-pending');
-        error_log("ORDER DATA ".print_r($current_order_data,true));
-        wp_delete_post($this->order->get_id(),true);
-        error_log("DELETED SUCCESSFULLY - ORDER NUMBER - ". gettype(intval($current_order_data->order_number)));
-        $order_new = new WC_Order(intval($current_order_data->order_number));
-        error_log("ORDER CREATED SUCCESSFULLY");
-        $this->order = $order_new;
-        error_log("ON REPLACE ".print_r($this->order->get_id(),true));
-        WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $current_order_data->order_id, $current_order_data->order_number, 'paid' );
+        try{
+            WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $current_order_data->order_id, $current_order_data->order_number, 'paid' );
+        }catch(Exception $e){
+            return false;
+        }
         return true;
     }
 
-    protected function ckpg_mark_as_failed_payment()
+    protected function ckpg_mark_as_failed_payment($payment_type)
     {
+        $payment_method = '';
+        switch($payment_type){
+            case 'card_payment': { $payment_method = 'Credit Card'; break; }
+            case 'cash_payment': { $payment_method = 'OXXO Pay'; break; }
+            case 'bank_transfer_payment': { $payment_method = 'SPEI Payment'; break; }
+        }
         $this->order->add_order_note(
          sprintf(
-             "%s Credit Card Payment Failed : '%s'",
+             "%s " . $payment_method . " Payment Failed : '%s'",
              $this->GATEWAY_NAME,
              $this->transaction_error_message
              )
@@ -396,7 +589,6 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     protected function ckpg_completeOrder()
     {
         global $woocommerce;
-        error_log("ON COMPLETE ".print_r($this->order->get_id(),true));
         if ($this->order->get_status() == 'completed')
             return;
 
@@ -418,23 +610,58 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     public function process_payment($order_id)
     {
         global $woocommerce;
-        $this->order        = new WC_Order($order_id);
-        error_log("ON CREATE ".print_r($this->order->get_id(),true));
-        if ($this->ckpg_set_as_paid())
+        wp_delete_post($order_id,true);
+        $current_order_data = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), 'pending');
+        $this->order        = wc_get_order($current_order_data->order_number);
+        $current_order = \Conekta\Order::find($current_order_data->order_id);
+        $payment_type = $current_order->charges[0]->payment_method->object;
+        $this->order->set_payment_method(WC()->payment_gateways()->get_available_payment_gateways()[$this->id]);
+        if ($this->ckpg_set_as_paid($current_order_data))
         {
-            $this->ckpg_completeOrder();
-
+            $charge = $current_order->charges[0];
+            $this->transaction_id = $charge->id;
+            if($payment_type == 'card_payment'){
+                $this->ckpg_completeOrder();
+                $this->order->set_payment_method_title('card');
+                update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id);
+            }else{
+                if($payment_type == 'cash_payment'){
+                    $message = 'Awaiting the conekta OXXO payment';
+                    $this->order->set_payment_method_title($this->settings['oxxo_title']);
+                    update_post_meta($this->order->get_id(), 'conekta-referencia', $charge->payment_method->reference);
+                }else{
+                    $message = 'Awaiting the conekta SPEI payment';
+                    $this->order->set_payment_method_title($this->settings['spei_title']);
+                    update_post_meta( $this->order->get_id(), 'conekta-clabe', $charge->payment_method->clabe );
+                }
+                // Mark as on-hold (we're awaiting the notification of payment)
+                $this->order->update_status('on-hold', __( $message, 'woocommerce' ));
+                update_post_meta( $this->order->get_id(), 'conekta-id', $charge->id );
+                update_post_meta( $this->order->get_id(), 'conekta-creado', $charge->created_at );
+                update_post_meta( $this->order->get_id(), 'conekta-expira', $charge->payment_method->expires_at );
+                // Remove cart
+                $woocommerce->cart->empty_cart();
+                unset($_SESSION['order_awaiting_payment']);
+            }
             $result = array(
                 'result' => 'success',
                 'redirect' => $this->get_return_url($this->order)
                 );
             return $result;
-        }
-        else {
-            $this->ckpg_mark_as_failed_payment();
+        } else if ($payment_type == 'card_payment'){
+            $this->ckpg_mark_as_failed_payment($payment_type);
             WC()->session->reload_checkout = true;
+        } else {
+            $this->ckpg_mark_as_failed_payment($payment_type);
+            global $wp_version;
+            if (version_compare($wp_version, '4.1', '>=')) {
+                wc_add_notice(__('Transaction Error: Could not complete the payment', 'woothemes'), $notice_type = 'error');
+            } else {
+                $woocommerce->add_error(__('Transaction Error: Could not complete the payment'), 'woothemes');
+            }
         }
     }
+
 
     /**
      * Checks if woocommerce has enabled available currencies for plugin
@@ -570,6 +797,60 @@ function ckpg_checkout_delete_card() {
 }
 add_action( 'wp_ajax_ckpg_checkout_delete_card','ckpg_checkout_delete_card');
 
+function ckpg_conekta_spei_order_status_completed($order_id = null)
+    {
+        global $woocommerce;
+        if (!$order_id){
+            $order_id = sanitize_text_field((string) $_POST['order_id']);
+        }
+
+        $data = get_post_meta( $order_id );
+        $total = $data['_order_total'][0] * 100;
+
+        $params = array();
+        $amount = floatval($_POST['amount']);
+        if(isset($amount))
+        {
+            $params['amount'] = round($amount);
+        }
+    }
+
+add_action('woocommerce_order_status_processing_to_completed',  'ckpg_conekta_spei_order_status_completed' );
+
+function ckpg_conekta_cash_order_status_completed($order_id = null)
+{
+    global $woocommerce;
+    if (!$order_id){
+        $order_id = sanitize_text_field((string) $_POST['order_id']);
+    }
+
+    $data = get_post_meta( $order_id );
+
+    $total = $data['_order_total'][0] * 100;
+
+    $amount = floatval($_POST['amount']);
+    if(isset($amount))
+    {
+        $params['amount'] = round($amount);
+    }
+}
+
+add_action('woocommerce_order_status_processing_to_completed',  'ckpg_conekta_cash_order_status_completed' );
+
+function set_billing_data($wc_order){
+    $wc_order->set_billing_address_1($_POST['address_1']);
+    $wc_order->set_billing_address_2($_POST['address_2']);
+    $wc_order->set_billing_city($_POST['city']);
+    $wc_order->set_billing_state($_POST['state']);
+    $wc_order->set_billing_country($_POST['country']);
+    $wc_order->set_billing_email($_POST['email']);
+    $wc_order->set_billing_first_name($_POST['firstName']);
+    $wc_order->set_billing_last_name($_POST['lastName']);
+    $wc_order->set_billing_phone($_POST['phone']);
+    $wc_order->set_billing_postcode($_POST['postcode']);
+    $wc_order->save();
+}
+
 function ckpg_create_order()
     {
         global $woocommerce;
@@ -577,8 +858,6 @@ function ckpg_create_order()
         $order_id = null;
         try{
             $gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
-            $gateway_spei = WC()->payment_gateways->get_available_payment_gateways()['conektaspei'];
-            $gateway_cash = WC()->payment_gateways->get_available_payment_gateways()['conektaoxxopay'];
             \Conekta\Conekta::setApiKey($gateway->secret_key);
             \Conekta\Conekta::setApiVersion('2.0.0');
             \Conekta\Conekta::setPlugin($gateway->name);
@@ -593,7 +872,7 @@ function ckpg_create_order()
                     $customer = \Conekta\Customer::find($customer_id); 
                 }else{
                     $customerData = array(
-                        'name' => $_POST['name'],
+                        'name' => $_POST['firstName'] . " " . $_POST['lastName'],
                         'email' => $_POST['email'],
                         'phone' => $_POST['phone']
                     );
@@ -603,6 +882,7 @@ function ckpg_create_order()
                 $posted_data = $checkout->get_posted_data();
                 $order_id = $checkout->create_order($posted_data);
                 $wc_order = wc_get_order( $order_id );
+                set_billing_data($wc_order);
                 $data = ckpg_get_request_data($wc_order);
                 $amount = (int) $data['amount'];
                 $items  = $wc_order->get_items();
@@ -640,8 +920,8 @@ function ckpg_create_order()
                     'tax_lines' => $tax_lines,
                     'discount_lines'   => $discount_lines,
                     'shipping_contact'=> array(
-                        "phone" => $customer['phone'],
-                        "receiver" => $customer['name'],
+                        "phone" => $_POST['phone'],
+                        "receiver" => $_POST['firstName'] . " " . $_POST['lastName'],
                         "address" => array(
                             "street1" => $_POST['address_1'],
                             "street2" => $_POST['address_2'],
@@ -653,7 +933,8 @@ function ckpg_create_order()
                         'allowed_payment_methods' => array("card","cash","bank_transfer"),
                         'monthly_installments_enabled' => !empty($allowed_installments),
                         'monthly_installments_options' => $allowed_installments,
-                        "on_demand_enabled" => ($gateway->enable_save_card == 'yes')
+                        'expires_at' => $gateway->ckpg_expiration_payment(),
+                        'on_demand_enabled' => ($gateway->enable_save_card == 'yes')
                     ),
                     'customer_info' => array(
                         'customer_id'   =>  $customer['id'],
@@ -666,7 +947,7 @@ function ckpg_create_order()
                 );
                 $order_details = ckpg_check_balance($order_details, $amount);
                 $order = \Conekta\Order::create($order_details);
-                WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id, 'card-pending' );
+                WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id, 'pending' );
             }else{
                 $order = \Conekta\Order::find($old_order->order_id);
             }
@@ -675,8 +956,8 @@ function ckpg_create_order()
                 'checkout_id'  => $order->checkout['id'],
                 'key' => $gateway->secret_key,
                 'price' => WC()->cart->total,
-                'spei_text' => (empty($gateway_spei)) ? '' : $gateway_spei->settings['description'],
-                'cash_text' => (empty($gateway_cash)) ? '' : $gateway_cash->settings['description']
+                'spei_text' => $gateway->settings['spei_description'],
+                'cash_text' => $gateway->settings['oxxo_description']
             );
         } catch(\Conekta\Handler $e) {
             $description = $e->getMessage();

@@ -21,6 +21,23 @@ jQuery(document).ready(function ($) {
         }
     }).change();
 
+    var type = $("#woocommerce_conektacard_expiration_time :selected").val();
+    $("#woocommerce_conektacard_expiration_time").change(function(){
+        type = $(this).children("option:selected").val();
+    });
+    $('#woocommerce_conektacard_expiration').change(function(){
+        var currentValue = parseInt($('#woocommerce_conektacard_expiration').val())
+        if( currentValue<1 || !$.isNumeric(currentValue)){
+            $('#woocommerce_conektacard_expiration').val(1)
+        }else{
+            if(type=="hours"){
+                if(currentValue > 23) $('#woocommerce_conektacard_expiration').val(23)
+            }else{
+                if(currentValue > 31) $('#woocommerce_conektacard_expiration').val(31)
+            }
+        }
+    });
+
     const METADATA_LIMIT = 12;
     var order_last_valid_selection = $("#woocommerce_conektacard_order_metadata").val();
     $("#woocommerce_conektacard_order_metadata").change(function (event) {

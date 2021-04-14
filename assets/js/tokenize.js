@@ -213,10 +213,13 @@ const validate_checkout = function () {
         let address_2 = jQuery("#billing_address_2");
         let company = jQuery("#billing_company");
         let state = jQuery("#billing_state");
+        let city = jQuery('#billing_city')
         let postBody = {
             action: "ckpg_create_order",  
             phone: phone.val(),
-            name: first_name.val() + " " + last_name.val(),
+            firstName: first_name.val(),
+            lastName: last_name.val(),
+            city: city.val(),
             email: email.val(),
             country: country.val(),
             postcode: postcode.val(),
