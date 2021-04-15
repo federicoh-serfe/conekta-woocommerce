@@ -60,6 +60,7 @@ function ckpg_conekta_activation() {
         customer_id VARCHAR(255) NOT NULL,
         cart_hash VARCHAR(255) NOT NULL,
         order_id VARCHAR(255) NOT NULL,
+        order_number INT NOT NULL,
         status_name VARCHAR(255) NOT NULL,
         PRIMARY KEY  (id)
     ) $charset_collate;";

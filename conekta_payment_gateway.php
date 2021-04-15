@@ -494,7 +494,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
                 if (get_post_meta( $order->get_id(), '_payment_method', true ) === $this->id){
                     $instructions = $this->settings['oxxo_instructions'];
                     if ( $instructions && 'on-hold' === $order->get_status() ) {
-                        echo wpautop( wptexturize( $instructions['default'] ) ) . PHP_EOL;
+                        echo wpautop( wptexturize( $instructions ) ) . PHP_EOL;
                     }
                 }
                 break;
@@ -864,7 +864,7 @@ function ckpg_create_order()
             \Conekta\Conekta::setPluginVersion($gateway->version);
             \Conekta\Conekta::setLocale('es');
             
-            $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), 'card-pending');
+            $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), 'pending');
             if(empty($old_order)){
 
                 $customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata(get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID);
