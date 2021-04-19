@@ -269,47 +269,6 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
           'label'       => __('Enable Credit Card Payment', 'woothemes'),
           'default'     => 'yes'
           ),
-         'meses' => array(
-            'type'        => 'checkbox',
-            'title'       => __('Months without interest', 'woothemes'),
-            'label'       => __('Enable Meses sin Intereses', 'woothemes'),
-            'default'     => 'no'
-            ),
-	    '3_months_msi' => array(
-		'type'        => 'checkbox',
-		'label'       => __('3 Months', 'woothemes'),
-		'default'     => 'no'
-	    ),
-	    '6_months_msi' => array(
-		'type'        => 'checkbox',
-		'label'       => __('6 Months', 'woothemes'),
-		'default'     => 'no'
-	    ),
-	    '9_months_msi' => array(
-		'type'        => 'checkbox',
-		'label'       => __('9 Months', 'woothemes'),
-		'default'     => 'no'
-	    ),
-	    '12_months_msi' => array(
-		'type'        => 'checkbox',
-		'label'       => __('12 Months', 'woothemes'),
-		'default'     => 'no'
-	    ),
-	    '18_months_msi' => array(
-		'type'        => 'checkbox',
-		'label'       => __('18 Months ( Banamex )', 'woothemes'),
-		'default'     => 'no'
-	    ),
-	    'amount_monthly_install' => array(
-		'type'        => 'text',
-		'title'       => __('Minimun Amount for Monthly Installments', 'woothemes'),
-		'description' => __('Minimum amount for monthly installments from Conekta</br>
-		- 300 MXN para 3 meses sin intereses</br>
-		- 600 MXN para 6 meses sin intereses</br>
-		- 900 MXN para 9 meses sin intereses</br>
-		- 1200 MXN para 12 meses sin intereses</br>
-		- 1800 MXN para 18 meses sin intereses</br>', 'woothemes'),
-            ),
          'debug' => array(
             'type'        => 'checkbox',
             'title'       => __('Testing', 'woothemes'),
@@ -359,12 +318,65 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
            'title'       => __('Alternate Image to display on checkout, use fullly qualified url, served via https', 'woothemes'),
            'default'     => __('', 'woothemes')
            ),
+           'enable_card' => array(
+            'type'        => 'checkbox',
+            'title'       => __('Card payment method', 'woothemes'),
+            'label'       => __('Enable card payment method', 'woothemes'),
+            'default'     => 'yes'
+            ),
            'enable_save_card' => array(
             'type'        => 'checkbox',
             'title'       => __('Save card', 'woothemes'),
             'label'       => __('Enable save card', 'woothemes'),
             'description' => __('Allow users to save the card for a future purchase.','woothemes'),
             'default'     => __('no', 'woothemes')
+            ),
+            'meses' => array(
+                'type'        => 'checkbox',
+                'title'       => __('Months without interest', 'woothemes'),
+                'label'       => __('Enable Meses sin Intereses', 'woothemes'),
+                'default'     => 'no'
+                ),
+            '3_months_msi' => array(
+            'type'        => 'checkbox',
+            'label'       => __('3 Months', 'woothemes'),
+            'default'     => 'no'
+            ),
+            '6_months_msi' => array(
+            'type'        => 'checkbox',
+            'label'       => __('6 Months', 'woothemes'),
+            'default'     => 'no'
+            ),
+            '9_months_msi' => array(
+            'type'        => 'checkbox',
+            'label'       => __('9 Months', 'woothemes'),
+            'default'     => 'no'
+            ),
+            '12_months_msi' => array(
+            'type'        => 'checkbox',
+            'label'       => __('12 Months', 'woothemes'),
+            'default'     => 'no'
+            ),
+            '18_months_msi' => array(
+            'type'        => 'checkbox',
+            'label'       => __('18 Months ( Banamex )', 'woothemes'),
+            'default'     => 'no'
+            ),
+            'amount_monthly_install' => array(
+            'type'        => 'text',
+            'title'       => __('Minimun Amount for Monthly Installments', 'woothemes'),
+            'description' => __('Minimum amount for monthly installments from Conekta</br>
+            - 300 MXN para 3 meses sin intereses</br>
+            - 600 MXN para 6 meses sin intereses</br>
+            - 900 MXN para 9 meses sin intereses</br>
+            - 1200 MXN para 12 meses sin intereses</br>
+            - 1800 MXN para 18 meses sin intereses</br>', 'woothemes'),
+                ),
+            'enable_cash' => array(
+                'type'        => 'checkbox',
+                'title'       => __('OXXO payment method', 'woothemes'),
+                'label'       => __('Enable OXXO payment method', 'woothemes'),
+                'default'     => 'yes'
             ),
             'expiration_time' => array(
                 'type'        => 'select',
@@ -380,6 +392,26 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
                 'type'        => 'text',
                 'title'       => __('Expiration time (in days or hours) for the reference', 'woothemes'),
                 'default'     => __('1', 'woothemes')
+            ),
+            'oxxo_description' => array(
+                'title' => 'OXXO - ' . __( 'Description', 'woocommerce' ),
+                'type' => 'textarea',
+                'description' => __('Payment method description that the customer will see on your checkout.', 'woocommerce'),
+                'default' =>__('Por favor realiza el pago en el OXXO más cercano utilizando la referencia que se encuentra a continuación.', 'woocommerce' ),
+                'desc_tip' => true,
+            ),
+            'oxxo_instructions' => array(
+                'title' => 'OXXO - ' . __( 'Instructions', 'woocommerce' ),
+                'type' => 'textarea',
+                'description' => __('Instructions that will be added to the thank you page and emails.', 'woocommerce'),
+                'default' =>__('Por favor realiza el pago en el OXXO más cercano utilizando la referencia que se encuentra a continuación.', 'woocommerce'),
+                'desc_tip' => true,
+            ),
+            'enable_spei' => array(
+                'type'        => 'checkbox',
+                'title'       => __('SPEI payment method', 'woothemes'),
+                'label'       => __('Enable SPEI payment method', 'woothemes'),
+                'default'     => 'yes'
             ),
             'account_owner' => array(
                 'type'        => 'Account owner',
@@ -399,20 +431,6 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
                 'type' => 'textarea',
                 'description' => __( 'Instructions that will be added to the thank you page and emails.', 'woocommerce' ),
                 'default' =>__( 'Por favor realiza el pago en el portal de tu banco utilizando los datos que te enviamos por correo.', 'woocommerce' ),
-                'desc_tip' => true,
-            ),
-            'oxxo_description' => array(
-                'title' => 'OXXO - ' . __( 'Description', 'woocommerce' ),
-                'type' => 'textarea',
-                'description' => __('Payment method description that the customer will see on your checkout.', 'woocommerce'),
-                'default' =>__('Por favor realiza el pago en el OXXO más cercano utilizando la referencia que se encuentra a continuación.', 'woocommerce' ),
-                'desc_tip' => true,
-            ),
-            'oxxo_instructions' => array(
-                'title' => 'OXXO - ' . __( 'Instructions', 'woocommerce' ),
-                'type' => 'textarea',
-                'description' => __('Instructions that will be added to the thank you page and emails.', 'woocommerce'),
-                'default' =>__('Por favor realiza el pago en el OXXO más cercano utilizando la referencia que se encuentra a continuación.', 'woocommerce'),
                 'desc_tip' => true,
             ),
             'order_metadata' => array(
@@ -894,7 +912,7 @@ function ckpg_create_order()
                 $order_metadata   = ckpg_build_order_metadata($wc_order, $gateway->settings);
 
                 $allowed_installments = array();
-                if($gateway->enable_meses){
+                if($gateway->enable_meses && $gateway->settings['enable_card'] == 'yes'){
                     $total = (float) WC()->cart->total;
                     foreach (array_keys($gateway->lang_options['monthly_installments']) as $month ) {
                         if(!empty($gateway->settings['amount_monthly_install'])){
@@ -913,7 +931,27 @@ function ckpg_create_order()
                         }
                     }
                 }
-            
+
+                $allowed_payment_methods = array();
+                if($gateway->settings['enable_card'] == 'yes')
+                    $allowed_payment_methods[] = "card";
+                if($gateway->settings['enable_cash'] == 'yes')
+                    $allowed_payment_methods[] = "cash";
+                if($gateway->settings['enable_spei'] == 'yes')
+                    $allowed_payment_methods[] = "bank_transfer";
+
+                $checkout = array(
+                    'allowed_payment_methods' => $allowed_payment_methods,
+                    'monthly_installments_enabled' => !empty($allowed_installments),
+                    'monthly_installments_options' => $allowed_installments,
+                    'force_3ds_flow' => ($gateway->settings['3ds'] == 'yes'),
+                    "on_demand_enabled" => ($gateway->enable_save_card == 'yes')
+                );
+
+                if(in_array("cash", $allowed_payment_methods)){
+                    $checkout['expires_at'] = $gateway->ckpg_expiration_payment();
+                }
+                
                 $order_details = array(
                     'line_items'=> $line_items,
                     'shipping_lines' => $shipping_lines,
@@ -929,13 +967,7 @@ function ckpg_create_order()
                             "postal_code" => $_POST['postcode']
                         )
                     ),
-                    'checkout' => array(
-                        'allowed_payment_methods' => array("card","cash","bank_transfer"),
-                        'monthly_installments_enabled' => !empty($allowed_installments),
-                        'monthly_installments_options' => $allowed_installments,
-                        'expires_at' => $gateway->ckpg_expiration_payment(),
-                        'on_demand_enabled' => ($gateway->enable_save_card == 'yes')
-                    ),
+                    'checkout' => $checkout,
                     'customer_info' => array(
                         'customer_id'   =>  $customer['id'],
                         'name' =>  $customer['name'],    
