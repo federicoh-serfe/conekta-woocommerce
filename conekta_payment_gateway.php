@@ -587,7 +587,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     protected function ckpg_set_as_paid($current_order_data)
     {
         try{
-            WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $current_order_data->order_id, $current_order_data->order_number, 'paid' );
+            WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $current_order_data->order_id, $current_order_data->order_number);
         }catch(Exception $e){
             return false;
         }
@@ -636,7 +636,7 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
     {
         global $woocommerce;
         wp_delete_post($order_id,true);
-        $current_order_data = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), 'pending');
+        $current_order_data = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash());
         $this->order        = wc_get_order($current_order_data->order_number);
         $current_order = \Conekta\Order::find($current_order_data->order_id);
         $payment_type = $current_order->charges[0]->payment_method->object;
@@ -889,7 +889,7 @@ function ckpg_create_order()
             \Conekta\Conekta::setPluginVersion($gateway->version);
             \Conekta\Conekta::setLocale('es');
             
-            $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), 'pending');
+            $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash());
             if(empty($old_order)){
 
                 $customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata(get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID);
@@ -987,7 +987,7 @@ function ckpg_create_order()
                 );
                 $order_details = ckpg_check_balance($order_details, $amount);
                 $order = \Conekta\Order::create($order_details);
-                WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id, 'pending' );
+                WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id);
             }else{
                 $order = \Conekta\Order::find($old_order->order_id);
             }

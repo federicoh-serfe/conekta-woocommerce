@@ -126,22 +126,22 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway
 
 	}
 
-	static public function ckpg_get_conekta_unfinished_order($customer_id, $cart_hash, $status_name) {
+	static public function ckpg_get_conekta_unfinished_order($customer_id, $cart_hash) {
 		global $wpdb;
 	
-		$sql = "SELECT order_id, order_number FROM wp_woocommerce_conekta_unfinished_orders WHERE customer_id = '{$customer_id}' AND cart_hash = '{$cart_hash}' AND status_name = '{$status_name}'";
+		$sql = "SELECT order_id, order_number FROM wp_woocommerce_conekta_unfinished_orders WHERE customer_id = '{$customer_id}' AND cart_hash = '{$cart_hash}' AND status_name = 'pending'";
 		
 		$order_data = $wpdb->get_results($sql);
 
 		return  (!empty($order_data)) ? $order_data[0] : null;
 	}
 
-	static public function ckpg_insert_conekta_unfinished_order($user_id, $cart_hash, $order_id, $order_number, $status_name) {
+	static public function ckpg_insert_conekta_unfinished_order($user_id, $cart_hash, $order_id, $order_number) {
 		global $wpdb;
 		
-		if ( empty( WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order($user_id, $cart_hash, $status_name) ) ){
-
-			$sql = "INSERT INTO wp_woocommerce_conekta_unfinished_orders (customer_id, cart_hash, order_id, order_number, status_name) VALUES ('{$user_id}','{$cart_hash}','{$order_id}', '{$order_number}', '{$status_name}')";
+		$found = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order($user_id, $cart_hash);
+		if ( empty( $found ) ){
+			$sql = "INSERT INTO wp_woocommerce_conekta_unfinished_orders (customer_id, cart_hash, order_id, order_number, status_name) VALUES ('{$user_id}','{$cart_hash}','{$order_id}', '{$order_number}', 'pending')";
 		} else {
 			$sql ="UPDATE wp_woocommerce_conekta_unfinished_orders SET status_name = 'paid' WHERE customer_id = '{$user_id}' AND cart_hash = '{$cart_hash}' AND order_id = '{$order_id}' AND order_number = '{$order_number}'";
 		}
