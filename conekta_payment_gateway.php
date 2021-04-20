@@ -331,6 +331,13 @@ class WC_Conekta_Card_Gateway extends WC_Conekta_Plugin
             'description' => __('Allow users to save the card for a future purchase.','woothemes'),
             'default'     => __('no', 'woothemes')
             ),
+            'enable_pre_authorize' => array(
+                'type'        => 'checkbox',
+                'title'       => __('Pre-authorize', 'woothemes'),
+                'label'       => __('Enable card payments with pre-authorization', 'woothemes'),
+                'description' => __('Preauthorize all card payments instead of charging them inmediately.','woothemes'),
+                'default'     => __('no', 'woothemes')
+            ),
             'meses' => array(
                 'type'        => 'checkbox',
                 'title'       => __('Months without interest', 'woothemes'),
@@ -967,6 +974,7 @@ function ckpg_create_order()
                             "postal_code" => $_POST['postcode']
                         )
                     ),
+                    'pre_authorize' => ($gateway->settings['enable_pre_authorize'] == 'yes'),
                     'checkout' => $checkout,
                     'customer_info' => array(
                         'customer_id'   =>  $customer['id'],

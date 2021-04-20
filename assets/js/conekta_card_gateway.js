@@ -28,6 +28,7 @@ jQuery(document).ready(function ($) {
         if($('#woocommerce_conektacard_enable_spei,#woocommerce_conektacard_enable_cash').is(':checked') || card_enabled){
             $('#woocommerce_conektacard_enable_save_card').prop('disabled', !card_enabled);
             $('#woocommerce_conektacard_meses').prop('disabled', !card_enabled);
+            $('#woocommerce_conektacard_enable_pre_authorize').prop('disabled', !card_enabled);
             $('#woocommerce_conektacard_amount_monthly_install').prop('readonly', !card_enabled);
             [3,6,9,12,18].forEach(months => {
                 $(`#woocommerce_conektacard_${months.toString()}_months_msi`).prop('disabled', !card_enabled);
