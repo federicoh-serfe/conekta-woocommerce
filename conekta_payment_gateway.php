@@ -862,160 +862,171 @@ function ckpg_conekta_cash_order_status_completed($order_id = null)
 
 add_action('woocommerce_order_status_processing_to_completed',  'ckpg_conekta_cash_order_status_completed' );
 
-function set_billing_data($wc_order){
-    $wc_order->set_billing_address_1($_POST['address_1']);
-    $wc_order->set_billing_address_2($_POST['address_2']);
-    $wc_order->set_billing_city($_POST['city']);
-    $wc_order->set_billing_state($_POST['state']);
-    $wc_order->set_billing_country($_POST['country']);
-    $wc_order->set_billing_email($_POST['email']);
-    $wc_order->set_billing_first_name($_POST['firstName']);
-    $wc_order->set_billing_last_name($_POST['lastName']);
-    $wc_order->set_billing_phone($_POST['phone']);
-    $wc_order->set_billing_postcode($_POST['postcode']);
+function set_billing_data( $wc_order ) {
+    $wc_order->set_billing_address_1( $_POST['address_1'] );
+    $wc_order->set_billing_address_2( $_POST['address_2'] );
+    $wc_order->set_billing_city( $_POST['city'] );
+    $wc_order->set_billing_state( $_POST['state'] );
+    $wc_order->set_billing_country( $_POST['country'] );
+    $wc_order->set_billing_email( $_POST['email'] );
+    $wc_order->set_billing_first_name( $_POST['firstName'] );
+    $wc_order->set_billing_last_name( $_POST['lastName'] );
+    $wc_order->set_billing_phone( $_POST['phone'] );
+    $wc_order->set_billing_postcode( $_POST['postcode'] );
     $wc_order->save();
 }
 
-function ckpg_create_order()
-    {
-        global $woocommerce;
-        wc_clear_notices();
-        $order_id = null;
-        try{
-            $gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
-            \Conekta\Conekta::setApiKey($gateway->secret_key);
-            \Conekta\Conekta::setApiVersion('2.0.0');
-            \Conekta\Conekta::setPlugin($gateway->name);
-            \Conekta\Conekta::setPluginVersion($gateway->version);
-            \Conekta\Conekta::setLocale('es');
-            
-            $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash());
-            if(empty($old_order)){
+function ckpg_create_order() {
+    global $woocommerce;
+    wc_clear_notices();
+    $order_id = null;
+    try {
+        $gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+        \Conekta\Conekta::setApiKey( $gateway->secret_key );
+        \Conekta\Conekta::setApiVersion( '2.0.0' );
+        \Conekta\Conekta::setPlugin( $gateway->name );
+        \Conekta\Conekta::setPluginVersion( $gateway->version );
+        \Conekta\Conekta::setLocale( 'es' );
 
-                $customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata(get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID);
-                if(!empty($customer_id)){
-                    $customer = \Conekta\Customer::find($customer_id); 
-                }else{
-                    $customerData = array(
-                        'name' => $_POST['firstName'] . " " . $_POST['lastName'],
-                        'email' => $_POST['email'],
-                        'phone' => $_POST['phone']
-                    );
-                    $customer = \Conekta\Customer::create($customerData);
-                }
-                $checkout = WC()->checkout();
-                $posted_data = $checkout->get_posted_data();
-                $order_id = $checkout->create_order($posted_data);
-                $wc_order = wc_get_order( $order_id );
-                set_billing_data($wc_order);
-                $data = ckpg_get_request_data($wc_order);
-                $amount = (int) $data['amount'];
-                $items  = $wc_order->get_items();
-                $taxes  = $wc_order->get_taxes();
-                $line_items       = ckpg_build_line_items($items, $gateway->ckpg_get_version());
-                $discount_lines   = ckpg_build_discount_lines($data);
-                $shipping_lines   = ckpg_build_shipping_lines($data);
-                $tax_lines        = ckpg_build_tax_lines($taxes);
-                $order_metadata   = ckpg_build_order_metadata($wc_order, $gateway->settings);
+        $old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
+        if ( empty( $old_order ) ) {
 
-                $allowed_installments = array();
-                if($gateway->enable_meses && $gateway->settings['enable_card'] == 'yes'){
-                    $total = (float) WC()->cart->total;
-                    foreach (array_keys($gateway->lang_options['monthly_installments']) as $month ) {
-                        if(!empty($gateway->settings['amount_monthly_install'])){
-                            $elegible = $total >= (int) $gateway->settings['amount_monthly_install'];
-                        }else{
-                            switch( $month ) {
-                                case 3 : $elegible = $total >= 300; break;
-                                case 6 : $elegible = $total >= 600; break;
-                                case 9 : $elegible = $total >= 900; break;
-                                case 12 : $elegible = $total >= 1200; break;
-                                case 18 : $elegible = $total >= 1800; break;
-                            }
-                        }
-                        if($month <= $gateway->ckpg_find_last_month() && $elegible){
-                            $allowed_installments[] = $month;
+            $customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
+            if ( ! empty( $customer_id ) ) {
+                $customer = \Conekta\Customer::find( $customer_id );
+            } else {
+                $customer_data = array(
+                    'name'  => $_POST['firstName'] . " " . $_POST['lastName'],
+                    'email' => $_POST['email'],
+                    'phone' => $_POST['phone'],
+                );
+                $customer      = \Conekta\Customer::create( $customer_data );
+            }
+            $checkout    = WC()->checkout();
+            $posted_data = $checkout->get_posted_data();
+            $order_id    = $checkout->create_order( $posted_data );
+            $wc_order    = wc_get_order( $order_id );
+            set_billing_data( $wc_order );
+            $data           = ckpg_get_request_data( $wc_order );
+            $amount         = (int) $data['amount'];
+            $items          = $wc_order->get_items();
+            $taxes          = $wc_order->get_taxes();
+            $line_items     = ckpg_build_line_items( $items, $gateway->ckpg_get_version() );
+            $discount_lines = ckpg_build_discount_lines( $data );
+            $shipping_lines = ckpg_build_shipping_lines( $data );
+            $tax_lines      = ckpg_build_tax_lines( $taxes );
+            $order_metadata = ckpg_build_order_metadata( $wc_order, $gateway->settings );
+
+            $allowed_installments = array();
+            if ( 'yes' === $gateway->enable_meses && $gateway->settings['enable_card'] ) {
+                $total = (float) WC()->cart->total;
+                foreach ( array_keys( $gateway->lang_options['monthly_installments'] ) as $month ) {
+                    if ( ! empty( $gateway->settings['amount_monthly_install'] ) ) {
+                        $elegible = $total >= (int) $gateway->settings['amount_monthly_install'];
+                    } else {
+                        switch ( $month ) {
+                            case 3:
+                                $elegible = $total >= 300;
+                                break;
+                            case 6:
+                                $elegible = $total >= 600;
+                                break;
+                            case 9:
+                                $elegible = $total >= 900;
+                                break;
+                            case 12:
+                                $elegible = $total >= 1200;
+                                break;
+                            case 18:
+                                $elegible = $total >= 1800;
+                                break;
                         }
                     }
+                    if ( $month <= $gateway->ckpg_find_last_month() && $elegible ) {
+                        $allowed_installments[] = $month;
+                    }
                 }
-
-                $allowed_payment_methods = array();
-                if($gateway->settings['enable_card'] == 'yes')
-                    $allowed_payment_methods[] = "card";
-                if($gateway->settings['enable_cash'] == 'yes')
-                    $allowed_payment_methods[] = "cash";
-                if($gateway->settings['enable_spei'] == 'yes')
-                    $allowed_payment_methods[] = "bank_transfer";
-
-                $checkout = array(
-                    'allowed_payment_methods' => $allowed_payment_methods,
-                    'monthly_installments_enabled' => !empty($allowed_installments),
-                    'monthly_installments_options' => $allowed_installments,
-                    'force_3ds_flow' => ($gateway->settings['3ds'] == 'yes'),
-                    "on_demand_enabled" => ($gateway->enable_save_card == 'yes')
-                );
-
-                if(in_array("cash", $allowed_payment_methods)){
-                    $checkout['expires_at'] = $gateway->ckpg_expiration_payment();
-                }
-                
-                $order_details = array(
-                    'line_items'=> $line_items,
-                    'shipping_lines' => $shipping_lines,
-                    'tax_lines' => $tax_lines,
-                    'discount_lines'   => $discount_lines,
-                    'shipping_contact'=> array(
-                        "phone" => $_POST['phone'],
-                        "receiver" => $_POST['firstName'] . " " . $_POST['lastName'],
-                        "address" => array(
-                            "street1" => $_POST['address_1'],
-                            "street2" => $_POST['address_2'],
-                            "country" => $_POST['country'],
-                            "postal_code" => $_POST['postcode']
-                        )
-                    ),
-                    'pre_authorize' => ($gateway->settings['enable_pre_authorize'] == 'yes'),
-                    'checkout' => $checkout,
-                    'customer_info' => array(
-                        'customer_id'   =>  $customer['id'],
-                        'name' =>  $customer['name'],    
-                        'email' => $customer['email'],    
-                        'phone' => $customer['phone']
-                    ),
-                    'metadata' => $order_metadata,
-                    'currency' => $data['currency']
-                );
-                $order_details = ckpg_check_balance($order_details, $amount);
-                $order = \Conekta\Order::create($order_details);
-                WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order(WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id);
-            }else{
-                $order = \Conekta\Order::find($old_order->order_id);
             }
-            
-            $response = array(
-                'checkout_id'  => $order->checkout['id'],
-                'key' => $gateway->secret_key,
-                'price' => WC()->cart->total,
-                'spei_text' => $gateway->settings['spei_description'],
-                'cash_text' => $gateway->settings['oxxo_description']
+
+            $allowed_payment_methods = array();
+            if ( 'yes' === $gateway->settings['enable_card'] ) {
+                $allowed_payment_methods[] = 'card';
+            }
+            if ( 'yes' === $gateway->settings['enable_cash'] ) {
+                $allowed_payment_methods[] = 'cash';
+            }
+            if ( 'yes' === $gateway->settings['enable_spei'] ) {
+                $allowed_payment_methods[] = 'bank_transfer';
+            }
+
+            $checkout = array(
+                'allowed_payment_methods'      => $allowed_payment_methods,
+                'monthly_installments_enabled' => ! empty( $allowed_installments ),
+                'monthly_installments_options' => $allowed_installments,
+                'force_3ds_flow'               => ( 'yes' === $gateway->settings['3ds'] ),
+                'on_demand_enabled'            => ( 'yes' === $gateway->enable_save_card ),
             );
-        } catch(\Conekta\Handler $e) {
-            $description = $e->getMessage();
-            global $wp_version;
-            if (version_compare($wp_version, '4.1', '>=')) {
-                wc_add_notice(__('Error: ', 'woothemes') . $description , $notice_type = 'error');
-            } else {
-                error_log('Gateway Error:' . $description . "\n");
-                $woocommerce->add_error(__('Error: ', 'woothemes') . $description);
+
+            if ( in_array( 'cash', $allowed_payment_methods, true ) ) {
+                $checkout['expires_at'] = $gateway->ckpg_expiration_payment();
             }
-            if($order_id !== null) {
-                wp_delete_post($order_id,true);
-            }
-            $response = array(
-                'error' => $e->getMessage()
+
+            $order_details = array(
+                'line_items'       => $line_items,
+                'shipping_lines'   => $shipping_lines,
+                'tax_lines'        => $tax_lines,
+                'discount_lines'   => $discount_lines,
+                'shipping_contact' => array(
+                    'phone'    => $_POST['phone'],
+                    'receiver' => $_POST['firstName'] . ' ' . $_POST['lastName'],
+                    'address'  => array(
+                        'street1'     => $_POST['address_1'],
+                        'street2'     => $_POST['address_2'],
+                        'country'     => $_POST['country'],
+                        'postal_code' => $_POST['postcode'],
+                    ),
+                ),
+                'pre_authorize'    => ( 'yes' === $gateway->settings['enable_pre_authorize'] ),
+                'checkout'         => $checkout,
+                'customer_info'    => array(
+                    'customer_id' => $customer['id'],
+                    'name'        => $customer['name'],
+                    'email'       => $customer['email'],
+                    'phone'       => $customer['phone'],
+                ),
+                'metadata'         => $order_metadata,
+                'currency'         => $data['currency'],
             );
+            $order_details = ckpg_check_balance( $order_details, $amount );
+            $order         = \Conekta\Order::create( $order_details );
+            WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id );
+        } else {
+            $order = \Conekta\Order::find( $old_order->order_id );
         }
-        wp_send_json($response);
+        $response = array(
+            'checkout_id' => $order->checkout['id'],
+            'key'         => $gateway->secret_key,
+            'price'       => WC()->cart->total,
+            'spei_text'   => $gateway->settings['spei_description'],
+            'cash_text'   => $gateway->settings['oxxo_description'],
+        );
+    } catch ( \Conekta\Handler $e ) {
+        $description = $e->getMessage();
+        global $wp_version;
+        if ( version_compare( $wp_version, '4.1', '>=' ) ) {
+            wc_add_notice( __( 'Error: ', 'woothemes' ) . $description, $notice_type = 'error' );
+        } else {
+            error_log( 'Gateway Error:' . $description . "\n" );
+            $woocommerce->add_error( __( 'Error: ', 'woothemes' ) . $description );
+        }
+        if ( null !== $order_id ) {
+            wp_delete_post( $order_id, true );
+        }
+        $response = array(
+            'error' => $e->getMessage(),
+        );
     }
-    add_action( 'wp_ajax_nopriv_ckpg_create_order','ckpg_create_order');
-    add_action( 'wp_ajax_ckpg_create_order','ckpg_create_order');
+    wp_send_json( $response );
+}
+add_action( 'wp_ajax_nopriv_ckpg_create_order', 'ckpg_create_order' );
+add_action( 'wp_ajax_ckpg_create_order', 'ckpg_create_order' );
