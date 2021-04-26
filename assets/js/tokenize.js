@@ -214,6 +214,7 @@ const validate_checkout = function () {
         let company = jQuery("#billing_company");
         let state = jQuery("#billing_state");
         let city = jQuery('#billing_city')
+        let nonce = jQuery('#woocommerce-process-checkout-nonce');
         let postBody = {
             action: "ckpg_create_order",  
             phone: phone.val(),
@@ -227,6 +228,7 @@ const validate_checkout = function () {
             address_2: address_2.val(),
             company: company.val(),
             state: state.val(),
+            nonce: nonce.val()
         }
         let error_container = document.getElementById("conektaBillingFormErrorMessage");
         jQuery.post(

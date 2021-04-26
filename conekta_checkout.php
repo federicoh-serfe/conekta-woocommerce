@@ -25,12 +25,12 @@ function ckpg_conekta_checkout_init_your_gateway()
             if (array_key_exists("payment_method", $_POST)) {
                 include_once('conekta_gateway_helper.php');
                 include_once('conekta_plugin.php');
-                include_once('conekta_payment_gateway.php');
+                include_once('class-wc-conekta-payment-gateway.php');
             }
         } else {
             include_once('conekta_gateway_helper.php');
             include_once('conekta_plugin.php');
-            include_once('conekta_payment_gateway.php');
+            include_once('class-wc-conekta-payment-gateway.php');
         }
 
     }
