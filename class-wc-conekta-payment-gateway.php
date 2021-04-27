@@ -4,8 +4,6 @@
  *
  * PHP version 5
  *
- * LICENSE: aaa.
- *
  * @package    conekta-woocommerce
  * @author     Cristina Randall
  * @license    http://www.php.net/license/3_01.txt  PHP License 3.01
@@ -146,10 +144,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		}
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'ckpg_payment_fields' ) );
-		add_action(
-			'woocommerce_update_options_payment_gateways_' . $this->id,
-			array( $this, 'process_admin_options' )
-		);
+		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
 		add_action( 'admin_notices', array( &$this, 'ckpg_perform_ssl_check' ) );
 
 		if ( ! $this->ckpg_validate_currency() ) {
@@ -160,25 +155,12 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 			$this->enabled = false;
 		}
 
-		add_action(
-			'woocommerce_thankyou_' . $this->id,
-			array( $this, 'ckpg_thankyou_page' )
-		);
-		add_action(
-			'woocommerce_email_before_order_table',
-			array( $this, 'ckpg_email_reference' )
-		);
-		add_action(
-			'woocommerce_email_before_order_table',
-			array( $this, 'ckpg_email_instructions' )
-		);
-
+		add_action( 'woocommerce_thankyou_' . $this->id, array( $this, 'ckpg_thankyou_page' ) );
+		add_action( 'woocommerce_email_before_order_table', array( $this, 'ckpg_email_reference' ) );
+		add_action( 'woocommerce_email_before_order_table', array( $this, 'ckpg_email_instructions' ) );
 		add_action( 'woocommerce_order_refunded', array( $this, 'ckpg_conekta_card_order_refunded' ), 10, 2 );
 		add_action( 'woocommerce_order_partially_refunded', array( $this, 'ckpg_conekta_card_order_partially_refunded' ), 10, 2 );
-		add_action(
-			'woocommerce_api_' . strtolower( get_class( $this ) ),
-			array( $this, 'ckpg_webhook_handler' )
-		);
+		add_action( 'woocommerce_api_' . strtolower( get_class( $this ) ), array( $this, 'ckpg_webhook_handler' ) );
 	}
 
 	/**
