@@ -34,7 +34,7 @@ function ckpg_check_balance( $order, $total ) {
 		$amount = $amount + $tax_line['amount'];
 	}
 
-	if ( $amount != $total ) {
+	if ( $amount !== $total ) {
 		$adjustment = abs( $amount - $total );
 
 		$order['tax_lines'][0]['amount'] = $order['tax_lines'][0]['amount'] + intval( $adjustment );
@@ -414,7 +414,7 @@ function amount_validation( $amount = '' ) {
  * @param string $item name to be validated.
  */
 function item_name_validation( $item = '' ) {
-	if ( (string) true == $item ) {
+	if ( ! empty( $item ) ) {
 		return sanitize_text_field( $item );
 	}
 
@@ -426,7 +426,7 @@ function item_name_validation( $item = '' ) {
  * @param string $string value to be validated.
  */
 function string_validation( $string = '' ) {
-	if ( (string) true == $string ) {
+	if ( ! empty( $string ) ) {
 		return esc_html( $string );
 	}
 
