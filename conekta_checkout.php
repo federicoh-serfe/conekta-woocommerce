@@ -17,14 +17,14 @@
  */
 function ckpg_conekta_checkout_init_your_gateway() {
 	if ( class_exists( 'WC_Payment_Gateway' ) ) {
-		if ( array_key_exists( 'wc-ajax', $_GET ) && 'checkout' === $_GET['wc-ajax'] ) {
-			if ( array_key_exists( 'payment_method', $_POST ) ) {
-				include_once 'conekta_gateway_helper.php';
+		if ( null !== filter_input( INPUT_GET, 'wc-ajax' ) && 'checkout' === filter_input( INPUT_POST, 'wc-ajax' ) ) {
+			if ( null !== filter_input( INPUT_POST, 'payment_method' ) ) {
+				include_once 'conekta-gateway-helper.php';
 				include_once 'conekta_plugin.php';
 				include_once 'class-wc-conekta-payment-gateway.php';
 			}
 		} else {
-			include_once 'conekta_gateway_helper.php';
+			include_once 'conekta-gateway-helper.php';
 			include_once 'conekta_plugin.php';
 			include_once 'class-wc-conekta-payment-gateway.php';
 		}
@@ -33,6 +33,11 @@ function ckpg_conekta_checkout_init_your_gateway() {
 
 add_action( 'plugins_loaded', 'ckpg_conekta_checkout_init_your_gateway', 0 );
 
+/**
+ * Creates the required tables when necessary.
+ *
+ * @access public
+ */
 function ckpg_conekta_activation() {
 
 	global $wpdb;
@@ -48,7 +53,7 @@ function ckpg_conekta_activation() {
 		KEY meta_id (meta_id)
 	) $charset_collate;";
 
-	$wpdb->get_results( $sql );
+	$wpdb->get_results( $sql ); // db call ok; no-cache ok.
 
 	$order_sql = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}woocommerce_conekta_unfinished_orders (
 		id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -60,11 +65,16 @@ function ckpg_conekta_activation() {
 		PRIMARY KEY  (id)
 	) $charset_collate;";
 
-	$wpdb->get_results( $order_sql );
+	$wpdb->get_results( $order_sql ); // db call ok; no-cache ok.
 }
 
 register_activation_hook( __FILE__, 'ckpg_conekta_activation' );
 
+/**
+ * Adds the required scripts and styles to checkout page.
+ *
+ * @access public
+ */
 function ckpg_conekta_checkout_custom_scripts_and_styles() {
 
 	if ( ! is_checkout() ) {

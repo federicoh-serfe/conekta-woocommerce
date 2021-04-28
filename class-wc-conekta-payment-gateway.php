@@ -6,7 +6,6 @@
  *
  * @package    conekta-woocommerce
  * @author     Cristina Randall
- * @license    http://www.php.net/license/3_01.txt  PHP License 3.01
  * @link       https://wordpress.org/plugins/conekta-woocommerce
  */
 
