@@ -47,6 +47,8 @@ function ckpg_check_balance($order, $total) {
 function ckpg_build_order_metadata($data, $settings)
 {
     $metadata = array(
+        'plugin' => 'woocommerce',
+        'plugin_version' => WC()->version,
         'reference_id' => $data->get_id()
     );
 
@@ -54,8 +56,9 @@ function ckpg_build_order_metadata($data, $settings)
     if (!empty($customer_note)) {
         $metadata = array_merge( $metadata, array('customer_message' => $data->get_customer_note()));
     }
+    $data_array = $data->get_data();
     foreach($settings["order_metadata"] as $order_meta){
-        $metadata = array_merge( $metadata, array($order_meta => $data->$order_meta));
+        $metadata = array_merge( $metadata, array($order_meta => $data_array[$order_meta]));
     }
     if(!empty($settings["product_metadata"])){ 
         $items = $data->get_items();
