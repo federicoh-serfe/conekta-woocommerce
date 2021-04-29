@@ -1,20 +1,35 @@
 <?php
- /*
- * Title   : Conekta Payment extension for WooCommerce
- * Author  : Cristina Randall
- * Url     : https://www.conekta.io/es/docs/plugins/woocommerce
+/**
+ * Conekta Payment Gateway
+ *
+ * Payment Gateway through Conekta.io for Woocommerce for both credit and debit cards as well as cash payments in OXXO and monthly installments for Mexican credit cards.
+ *
+ * @package conekta-woocommerce
+ * @link    https://wordpress.org/plugins/conekta-woocommerce/
+ * @author  Conekta.io
+ * @license http://www.gnu.org/licenses/gpl-3.0.html GNU General Public License v3.0
  */
+
 ?>
+
 <div class="clear"></div>
 <span style="width: 100%; float: left; color: red;" class='payment-errors required'></span>
-<?php $order_correct = (((float) WC()->cart->total) >= parent::MINIMUM_ORDER_AMOUNT);?>
-    <p id="conektaBillingFormErrorMessage"><?php echo ($order_correct) ? $this->lang_options["enter_customer_details"] : $this->lang_options["order_too_little"].parent::MINIMUM_ORDER_AMOUNT.' $'?></p>
-<?php if ($order_correct) : ?>
-    <div id="conektaIframeContainer" style="width: 100%;"></div>
+<?php $order_correct = ( ( (float) WC()->cart->total ) >= parent::MINIMUM_ORDER_AMOUNT ); ?>
+	<p id="conektaBillingFormErrorMessage">
+		<?php
+		if ( $order_correct ) {
+			echo esc_html( $this->lang_options['enter_customer_details'] );
+		} else {
+			echo esc_html( $this->lang_options['order_too_little'] ) . esc_html( parent::MINIMUM_ORDER_AMOUNT ) . esc_html( ' $' );
+		}
+		?>
+	</p>
+<?php if ( $order_correct ) : ?>
+	<div id="conektaIframeContainer" style="width: 100%;"></div>
 <?php endif ?>
 <script>
-    let order_btn_card = document.getElementById("place_order");
-    if(order_btn_card && order_btn_card.style.display != "none")
-        order_btn_card.style.display = "none";
+	let order_btn_card = document.getElementById("place_order");
+	if(order_btn_card && order_btn_card.style.display != "none")
+		order_btn_card.style.display = "none";
 </script>
 <div class="clear"></div> 

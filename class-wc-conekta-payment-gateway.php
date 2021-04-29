@@ -2,11 +2,12 @@
 /**
  * Conekta Payment Gateway
  *
- * PHP version 5
+ * Payment Gateway through Conekta.io for Woocommerce for both credit and debit cards as well as cash payments in OXXO and monthly installments for Mexican credit cards.
  *
- * @package    conekta-woocommerce
- * @author     Cristina Randall
- * @link       https://wordpress.org/plugins/conekta-woocommerce
+ * @package conekta-woocommerce
+ * @link    https://wordpress.org/plugins/conekta-woocommerce/
+ * @author  Conekta.io
+ * @license http://www.gnu.org/licenses/gpl-3.0.html GNU General Public License v3.0
  */
 
 if ( ! class_exists( 'Conekta' ) ) {
@@ -15,7 +16,7 @@ if ( ! class_exists( 'Conekta' ) ) {
 
 /**
  * Title   : Conekta Payment extension for WooCommerce
- * Author  : Cristina Randall
+ * Author  : Conekta.io
  * Url     : https://wordpress.org/plugins/conekta-woocommerce
  */
 class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
@@ -225,7 +226,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 	 */
 	public function ckpg_conekta_card_order_refunded( $order_id = null ) {
 		global $woocommerce;
-		include_once 'conekta_gateway_helper.php';
+		include_once 'conekta-gateway-helper.php';
 		\Conekta\Conekta::setApiKey( $this->secret_key );
 		\Conekta\Conekta::setApiVersion( '2.0.0' );
 		\Conekta\Conekta::setPlugin( $this->name );

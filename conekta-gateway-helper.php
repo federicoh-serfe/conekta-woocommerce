@@ -2,11 +2,12 @@
 /**
  * Conekta Payment Gateway
  *
- * PHP version 5
+ * Payment Gateway through Conekta.io for Woocommerce for both credit and debit cards as well as cash payments in OXXO and monthly installments for Mexican credit cards.
  *
- * @package    conekta-woocommerce
- * @author     Cristina Randall
- * @link       https://wordpress.org/plugins/conekta-woocommerce
+ * @package conekta-woocommerce
+ * @link    https://wordpress.org/plugins/conekta-woocommerce/
+ * @author  Conekta.io
+ * @license http://www.gnu.org/licenses/gpl-3.0.html GNU General Public License v3.0
  */
 
 /**
