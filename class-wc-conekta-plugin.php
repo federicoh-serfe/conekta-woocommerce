@@ -192,7 +192,7 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway {
 			$wpdb->insert(
 				'wp_woocommerce_conekta_metadata',
 				array(
-					'id_user' => $user_id,
+					'id_user'     => $user_id,
 					'meta_option' => $meta_options,
 					'meta_value'  => $meta_value, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 				)
@@ -204,7 +204,7 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway {
 					'meta_value' => $meta_value, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 				),
 				array(
-					'id_user' => $user_id,
+					'id_user'     => $user_id,
 					'meta_option' => $meta_options,
 				)
 			); // db call ok; no-cache ok.
@@ -246,7 +246,7 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway {
 			$wpdb->delete(
 				'wp_woocommerce_conekta_metadata',
 				array(
-					'id_user' => $user_id,
+					'id_user'     => $user_id,
 					'meta_option' => $meta_options,
 				)
 			); // db call ok; no-cache ok.
