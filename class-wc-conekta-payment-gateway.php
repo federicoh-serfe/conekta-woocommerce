@@ -1020,7 +1020,7 @@ function ckpg_conekta_add_suscription_fields() {
 	?>
 	</div>
 	<?php
-	if ( is_product() ) {
+	if ( 'edit' === get_current_screen()->parent_base && 'product' === get_current_screen()->id ) {
 		wp_register_script( 'conekta-product', WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) ) . '/assets/js/conekta_product.js', array( 'jquery' ), '1.0', true );
 		wp_enqueue_script( 'conekta-product' );
 	}
