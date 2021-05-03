@@ -942,6 +942,105 @@ function ckpg_conekta_card_add_gateway( $methods ) {
 add_filter( 'woocommerce_payment_gateways', 'ckpg_conekta_card_add_gateway' );
 
 /**
+ * Adds the Conekta Subscription tab for editing subscription attributes.
+ *
+ * @access public
+ * @param array $tabs list of product data tabs.
+ * @return array
+ */
+function ckpg_conekta_add_suscriptions_tab( $tabs ) {
+	$tabs['conekta_subscriptions'] = array(
+		'label'    => __( 'Conekta Subscriptions', 'woocommerce' ),
+		'target'   => 'conekta_subscriptions',
+		'class'    => array(),
+		'priority' => 65,
+	);
+	return $tabs;
+}
+
+/**
+ * Saves subscription data with a product.
+ *
+ * @access public
+ * @param int $post_id id of the posted product element.
+ */
+function ckpg_conekta_save_subscription_fields( $post_id ) {
+	$is_subscription = filter_input( INPUT_POST, '_is_subscription' );
+	if ( ! empty( $is_subscription ) ) {
+		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
+		$plans = filter_input( INPUT_POST, '_subscription_plans' );
+		if ( ! empty( $plans ) ) {
+			update_post_meta( $post_id, '_subscription_plans', esc_attr( $plans ) );
+		}
+	} else {
+		update_post_meta( $post_id, '_is_subscription', esc_attr( 'no' ) );
+	}
+}
+
+/**
+ * Adds the fields of the subscription tab when creating or editing a product.
+ *
+ * @access public
+ */
+function ckpg_conekta_add_suscription_fields() {
+
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	\Conekta\Conekta::setApiKey( $gateway->secret_key );
+	\Conekta\Conekta::setApiVersion( '2.0.0' );
+	\Conekta\Conekta::setPlugin( $gateway->name );
+	\Conekta\Conekta::setPluginVersion( $gateway->version );
+	\Conekta\Conekta::setLocale( 'es' );
+	$plans = array();
+	foreach ( \Conekta\Plan::all() as $p ) {
+		$plans[ $p['id'] ] = $p['name'];
+	}
+	?><div id="conekta_subscriptions" class="panel woocommerce_options_panel">
+	<?php
+		global $post;
+		woocommerce_wp_checkbox(
+			array(
+				'id'            => '_is_subscription',
+				'wrapper_class' => 'show_if_simple',
+				'value'         => get_post_meta( (int) $post->ID, '_is_subscription', true ),
+				'label'         => __( 'Subscriptions', 'woothemes' ),
+				'description'   => __( 'Enable subscription payment method for this product', 'woothemes' ),
+				'default'       => 'no',
+			)
+		);
+		woocommerce_wp_select(
+			array(
+				'id'            => '_subscription_plans',
+				'wrapper_class' => 'show_if_simple',
+				'value'         => get_post_meta( (int) $post->ID, '_subscription_plans', true ),
+				'label'         => __( 'Plans', 'woocommerce' ),
+				'options'       => $plans,
+				'description'   => __( 'Choose the payment plans available for this product', 'woocommerce' ),
+			)
+		);
+	?>
+	</div>
+	<?php
+	if ( is_product() ) {
+		wp_register_script( 'conekta-product', WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) ) . '/assets/js/conekta_product.js', array( 'jquery' ), '1.0', true );
+		wp_enqueue_script( 'conekta-product' );
+	}
+}
+
+/** CSS To Add Custom tab Icon */
+function wcpp_custom_style() { ?>
+	<style>
+	#woocommerce-product-data ul.wc-tabs li.conekta_subscriptions_options a:before { font-family: WooCommerce; content: '\e00f'; }
+	</style>
+	<?php 
+}
+
+add_action( 'admin_head', 'wcpp_custom_style' );
+add_action( 'woocommerce_product_data_panels', 'ckpg_conekta_add_suscription_fields' );
+
+add_filter( 'woocommerce_product_data_tabs', 'ckpg_conekta_add_suscriptions_tab' );
+add_filter( 'woocommerce_process_product_meta', 'ckpg_conekta_save_subscription_fields' );
+
+/**
  * Deletes a card payment method from the database.
  *
  * @access public
