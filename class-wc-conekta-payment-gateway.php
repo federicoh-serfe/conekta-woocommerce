@@ -1026,15 +1026,20 @@ function ckpg_conekta_add_suscription_fields() {
 	}
 }
 
-/** CSS To Add Custom tab Icon */
-function wcpp_custom_style() { ?>
+/**
+ * Sets the tab icon of teh Conekta Subscription tab.
+ *
+ * @access public
+ */
+function ckpg_conekta_subscription_tab_icon() {
+	?>
 	<style>
 	#woocommerce-product-data ul.wc-tabs li.conekta_subscriptions_options a:before { font-family: WooCommerce; content: '\e00f'; }
 	</style>
-	<?php 
+	<?php
 }
 
-add_action( 'admin_head', 'wcpp_custom_style' );
+add_action( 'admin_head', 'ckpg_conekta_subscription_tab_icon' );
 add_action( 'woocommerce_product_data_panels', 'ckpg_conekta_add_suscription_fields' );
 
 add_filter( 'woocommerce_product_data_tabs', 'ckpg_conekta_add_suscriptions_tab' );
