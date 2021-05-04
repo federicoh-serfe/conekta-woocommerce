@@ -47,4 +47,9 @@
 		'enter_card_details'     => '+ ENTER YOUR CREDIT OR DEBIT CARD DETAILS',
 		'enter_customer_details' => 'You must complete the billing information prior to perform the payment.',
 		'order_too_little'       => 'Payment is not possible when the total amount is under ',
+		'subscriptions_tab'      => 'Conekta Subscriptions',
+		'subscriptions'          => 'Subscriptions',
+		'subscriptions_desc'     => 'Enable subscription payment method for this product',
+		'plans'                  => 'Plans',
+		'plans_desc'             => 'Choose the payment plans available for this product',
 	);

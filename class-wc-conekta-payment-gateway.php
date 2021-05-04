@@ -949,8 +949,9 @@ add_filter( 'woocommerce_payment_gateways', 'ckpg_conekta_card_add_gateway' );
  * @return array
  */
 function ckpg_conekta_add_suscriptions_tab( $tabs ) {
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
 	$tabs['conekta_subscriptions'] = array(
-		'label'    => __( 'Conekta Subscriptions', 'woocommerce' ),
+		'label'    => $gateway->lang_options['subscriptions_tab'],
 		'target'   => 'conekta_subscriptions',
 		'class'    => array(),
 		'priority' => 65,
@@ -1002,8 +1003,8 @@ function ckpg_conekta_add_suscription_fields() {
 				'id'            => '_is_subscription',
 				'wrapper_class' => 'show_if_simple',
 				'value'         => get_post_meta( (int) $post->ID, '_is_subscription', true ),
-				'label'         => __( 'Subscriptions', 'woothemes' ),
-				'description'   => __( 'Enable subscription payment method for this product', 'woothemes' ),
+				'label'         => $gateway->lang_options['subscriptions'],
+				'description'   => $gateway->lang_options['subscriptions_desc'],
 				'default'       => 'no',
 			)
 		);
@@ -1012,9 +1013,9 @@ function ckpg_conekta_add_suscription_fields() {
 				'id'            => '_subscription_plans',
 				'wrapper_class' => 'show_if_simple',
 				'value'         => get_post_meta( (int) $post->ID, '_subscription_plans', true ),
-				'label'         => __( 'Plans', 'woocommerce' ),
+				'label'         => $gateway->lang_options['plans'],
 				'options'       => $plans,
-				'description'   => __( 'Choose the payment plans available for this product', 'woocommerce' ),
+				'description'   => $gateway->lang_options['plans_desc'],
 			)
 		);
 	?>
