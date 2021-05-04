@@ -256,6 +256,8 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 						'amount' => $total,
 					)
 				);
+			} elseif ( 'pre_authorized' === $conekta_order['payment_status'] ) {
+				$conekta_order->void();
 			}
 		} catch ( \Conekta\Handler $e ) {
 			$description = $e->getMessage();
