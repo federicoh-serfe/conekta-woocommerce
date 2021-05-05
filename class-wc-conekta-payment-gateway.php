@@ -1050,7 +1050,8 @@ function ckpg_create_order() {
 			$order_metadata = ckpg_build_order_metadata( $wc_order, $gateway->settings );
 
 			$allowed_installments = array();
-			if ( 'yes' === $gateway->enable_meses && $gateway->settings['enable_card'] ) {
+			// phpcs:ignore
+			if ( 'yes' == $gateway->enable_meses && $gateway->settings['enable_card'] ) {
 				$total = (float) WC()->cart->total;
 				foreach ( array_keys( $gateway->lang_options['monthly_installments'] ) as $month ) {
 					if ( ! empty( $gateway->settings['amount_monthly_install'] ) ) {
