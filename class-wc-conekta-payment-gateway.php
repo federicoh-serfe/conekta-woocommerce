@@ -1050,8 +1050,7 @@ function ckpg_create_order() {
 			$order_metadata = ckpg_build_order_metadata( $wc_order, $gateway->settings );
 
 			$allowed_installments = array();
-			// phpcs:ignore
-			if ( 'yes' == $gateway->enable_meses && $gateway->settings['enable_card'] ) {
+			if ( $gateway->enable_meses && 'yes' === $gateway->settings['enable_card'] ) {
 				$total = (float) WC()->cart->total;
 				foreach ( array_keys( $gateway->lang_options['monthly_installments'] ) as $month ) {
 					if ( ! empty( $gateway->settings['amount_monthly_install'] ) ) {
@@ -1075,7 +1074,7 @@ function ckpg_create_order() {
 								break;
 						}
 					}
-					if ( $month <= $gateway->ckpg_find_last_month() && $elegible ) {
+					if ( 'yes' === $gateway->settings[ $month . '_months_msi' ] && $elegible ) {
 						$allowed_installments[] = $month;
 					}
 				}
