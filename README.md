@@ -12,7 +12,7 @@
 
 =======
 # Conekta Woocommerce v.3.0.8
-[![Made with PHP](https://img.shields.io/badge/made%20with-php-red.svg?style=for-the-badge&colorA=ED4040&colorB=C12C2D)](http://php.net) 
+[![Made with PHP](https://img.shields.io/badge/made%20with-php-red.svg?style=for-the-badge&colorA=ED4040&colorB=C12C2D)](http://php.net)
 [![By Conekta](https://img.shields.io/badge/by-conekta-red.svg?style=for-the-badge&colorA=ee6130&colorB=00a4ac)](https://conekta.com)
 </div>
 
@@ -51,7 +51,7 @@ Example for custom instructions:
 
 Version Compatibility
 ---------------------
-This plugin has been tested on Wordpress 5.2.3  WooCommerce 3.6.5
+This plugin has been tested on Wordpress 5.5.3  WooCommerce 4.7.1
 
 Method 1:
 
