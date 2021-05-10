@@ -57,7 +57,7 @@ function ckpg_check_balance( $order, $total ) {
  */
 function ckpg_build_order_metadata( $data, $settings ) {
 	$metadata = array(
-		'plugin'         => 'woocommerce',
+		'plugin'         => 'Woocommerce',
 		'plugin_version' => WC()->version,
 		'reference_id'   => $data->get_id(),
 	);
