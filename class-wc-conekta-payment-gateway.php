@@ -955,7 +955,7 @@ function ckpg_conekta_add_suscriptions_tab( $tabs ) {
 	$tabs['conekta_subscriptions'] = array(
 		'label'    => $gateway->lang_options['subscriptions_tab'],
 		'target'   => 'conekta_subscriptions',
-		'class'    => array(),
+		'class'    => array( 'show_if_simple', 'show_if_variable', 'show_if_external' ),
 		'priority' => 65,
 	);
 	return $tabs;
@@ -971,9 +971,23 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 	$is_subscription = filter_input( INPUT_POST, '_is_subscription' );
 	if ( ! empty( $is_subscription ) ) {
 		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
-		$plans = filter_input( INPUT_POST, '_subscription_plans' );
-		if ( ! empty( $plans ) ) {
-			update_post_meta( $post_id, '_subscription_plans', esc_attr( $plans ) );
+		$product = wc_get_product($post_id);
+		if ( $product->is_type( array( 'simple', 'external' ) ) ) {
+			$plan = filter_input( INPUT_POST, '_subscription_plans' );
+			if ( ! empty( $plan ) ) {
+				update_post_meta( $post_id, '_subscription_plans', esc_attr( $plan ) );
+			}
+		} elseif ( $product->is_type( 'variable' ) ) {
+			$number = 0;
+			$variants = $product->get_children();
+			while ( $number < count($variants) ) {
+				$variant_id = $variants[ $number ];
+				$plan = filter_input( INPUT_POST, '_subscription_plans_' . $variant_id );
+				if ( ! empty( $plan ) ) {
+					update_post_meta( $variant_id, '_subscription_plans_' . $variant_id, esc_attr( $plan ) );
+				}
+				$number += 1;
+			}
 		}
 	} else {
 		update_post_meta( $post_id, '_is_subscription', esc_attr( 'no' ) );
@@ -1000,26 +1014,41 @@ function ckpg_conekta_add_suscription_fields() {
 	?><div id="conekta_subscriptions" class="panel woocommerce_options_panel">
 	<?php
 		global $post;
+		$product = wc_get_product($post->ID);
 		woocommerce_wp_checkbox(
 			array(
 				'id'            => '_is_subscription',
-				'wrapper_class' => 'show_if_simple',
 				'value'         => get_post_meta( (int) $post->ID, '_is_subscription', true ),
 				'label'         => $gateway->lang_options['subscriptions'],
 				'description'   => $gateway->lang_options['subscriptions_desc'],
 				'default'       => 'no',
 			)
 		);
-		woocommerce_wp_select(
-			array(
-				'id'            => '_subscription_plans',
-				'wrapper_class' => 'show_if_simple',
-				'value'         => get_post_meta( (int) $post->ID, '_subscription_plans', true ),
-				'label'         => $gateway->lang_options['plans'],
-				'options'       => $plans,
-				'description'   => $gateway->lang_options['plans_desc'],
-			)
-		);
+		if ( $product->is_type( array( 'simple', 'external' ) ) ) {
+			woocommerce_wp_select(
+				array(
+					'id'            => '_subscription_plans',
+					'value'         => get_post_meta( (int) $post->ID, '_subscription_plans', true ),
+					'label'         => $gateway->lang_options['plan'],
+					'options'       => $plans,
+					'description'   => $gateway->lang_options['plans_desc'],
+				)
+			);
+		} elseif ( $product->is_type( 'variable' ) ) {
+			foreach ( $product->get_children() as $variation_id ) {
+				$variation = wc_get_product( $variation_id );
+				woocommerce_wp_select(
+					array(
+						'id'            => '_subscription_plans_' . $variation_id,
+						'wrapper_class' => 'show_if_variable',
+						'value'         => get_post_meta( (int) $variation_id, '_subscription_plans_'. $variation_id, true ),
+						'label'         => $gateway->lang_options['plan'] . ' - ' . $variation->get_name(),
+						'options'       => $plans,
+						'description'   => $gateway->lang_options['plans_desc'],
+					)
+				);
+			}
+		}
 	?>
 	</div>
 	<?php

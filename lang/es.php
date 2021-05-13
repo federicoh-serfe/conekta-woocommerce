@@ -50,6 +50,7 @@
 		'subscriptions_tab'      => 'Suscripciones Conekta',
 		'subscriptions'          => 'Suscripciones',
 		'subscriptions_desc'     => 'Habilitar pago por suscripción para este producto',
+		'plan'                   => 'Plan',
 		'plans'                  => 'Planes',
-		'plans_desc'             => 'Elegir los planes de pago disponibles para este producto',
+		'plans_desc'             => 'Elegir el plan de pago de este producto',
 	);
