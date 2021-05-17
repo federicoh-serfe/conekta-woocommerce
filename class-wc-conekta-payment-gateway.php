@@ -961,6 +961,9 @@ function ckpg_conekta_add_suscriptions_tab( $tabs ) {
 	return $tabs;
 }
 
+function ckpg_update_variable_product_plans($product) {
+}
+
 /**
  * Saves subscription data with a product.
  *
@@ -978,16 +981,11 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 				update_post_meta( $post_id, '_subscription_plans', esc_attr( $plan ) );
 			}
 		} elseif ( $product->is_type( 'variable' ) ) {
-			$number        = 0;
-			$variants      = $product->get_children();
-			$variant_count = count( $variants );
-			while ( $number < $variant_count ) {
-				$variant_id = $variants[ $number ];
-				$plan       = filter_input( INPUT_POST, '_subscription_plans_' . $variant_id );
+			foreach ( $product->get_children() as $variant_id) {
+				$plan = filter_input( INPUT_POST, '_subscription_plans_' . $variant_id );
 				if ( ! empty( $plan ) ) {
 					update_post_meta( $variant_id, '_subscription_plans_' . $variant_id, esc_attr( $plan ) );
 				}
-				++$number;
 			}
 		}
 	} else {
@@ -1013,6 +1011,7 @@ function ckpg_conekta_add_suscription_fields() {
 		$plans[ $p['id'] ] = $p['name'];
 	}
 	?><div id="conekta_subscriptions" class="panel woocommerce_options_panel">
+		<div id="conekta_subscriptions_inner">
 	<?php
 	global $post;
 	$product = wc_get_product( $post->ID );
@@ -1036,6 +1035,7 @@ function ckpg_conekta_add_suscription_fields() {
 			)
 		);
 	} elseif ( $product->is_type( 'variable' ) ) {
+		$variations = array();
 		foreach ( $product->get_children() as $variation_id ) {
 			$variation = wc_get_product( $variation_id );
 			woocommerce_wp_select(
@@ -1043,19 +1043,30 @@ function ckpg_conekta_add_suscription_fields() {
 					'id'            => '_subscription_plans_' . $variation_id,
 					'wrapper_class' => 'show_if_variable',
 					'value'         => get_post_meta( (int) $variation_id, '_subscription_plans_' . $variation_id, true ),
-					'label'         => $gateway->lang_options['plan'] . ' - ' . $variation->get_name(),
+					'label'         => $variation->get_name(),
 					'options'       => $plans,
 					'description'   => $gateway->lang_options['plans_desc'],
 				)
 			);
+			$variations[ $variation_id ] = $variation->get_name();
 		}
 	}
 	?>
+		</div>
 	</div>
 	<?php
 	if ( 'edit' === get_current_screen()->parent_base && 'product' === get_current_screen()->id ) {
-		wp_register_script( 'conekta-product', WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) ) . '/assets/js/conekta_product.js', array( 'jquery' ), '1.0', true );
-		wp_enqueue_script( 'conekta-product' );
+		wp_register_script( 'conekta_product', WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) ) . '/assets/js/conekta_product.js', array( 'jquery' ), '1.0', true );
+		wp_enqueue_script( 'conekta_product' );
+		wp_localize_script(
+			'conekta_product',
+			'conekta_product',
+			array(
+				'plans_desc' => $gateway->lang_options['plans_desc'],
+				'plans' => $plans,
+				'variants' => isset($variations) ? $variations : null,
+			)
+		);
 	}
 }
 
@@ -1074,6 +1085,7 @@ function ckpg_conekta_subscription_tab_icon() {
 
 add_action( 'admin_head', 'ckpg_conekta_subscription_tab_icon' );
 add_action( 'woocommerce_product_data_panels', 'ckpg_conekta_add_suscription_fields' );
+add_action( 'woocommerce_variable_product_before_variations', 'ckpg_update_variable_product_plans' );
 
 add_filter( 'woocommerce_product_data_tabs', 'ckpg_conekta_add_suscriptions_tab' );
 add_filter( 'woocommerce_process_product_meta', 'ckpg_conekta_save_subscription_fields' );
