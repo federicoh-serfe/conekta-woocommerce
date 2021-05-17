@@ -974,18 +974,16 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 	$is_subscription = filter_input( INPUT_POST, '_is_subscription' );
 	if ( ! empty( $is_subscription ) ) {
 		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
-		$product = wc_get_product( $post_id );
-		if ( $product->is_type( array( 'simple', 'external' ) ) ) {
-			$plan = filter_input( INPUT_POST, '_subscription_plans' );
-			if ( ! empty( $plan ) ) {
-				update_post_meta( $post_id, '_subscription_plans', esc_attr( $plan ) );
-			}
-		} elseif ( $product->is_type( 'variable' ) ) {
-			foreach ( $product->get_children() as $variant_id) {
-				$plan = filter_input( INPUT_POST, '_subscription_plans_' . $variant_id );
-				if ( ! empty( $plan ) ) {
-					update_post_meta( $variant_id, '_subscription_plans_' . $variant_id, esc_attr( $plan ) );
-				}
+		$post_array = filter_input_array( INPUT_POST );
+		$plans_data = array_filter( $post_array, function( $element ){ return false !== strpos( $element, '_subscription_plans_' ); }, ARRAY_FILTER_USE_KEY );
+		foreach( $plans_data as $field => $plan ) {
+			$meta_key = str_replace('_field', '', $field);
+			if ( 'variable' === $post_array['product-type'] ) {
+				$variant_name = explode( '_', $meta_key );
+				$variant_number = (int) $variant_name[ count( $variant_name ) - 1 ];
+				update_post_meta( $variant_number, $meta_key, esc_attr( $plan ) );
+			} elseif ( in_array($post_array['product-type'], array( 'simple', 'external' ) ) ) {
+				update_post_meta( $post_id, $meta_key, esc_attr( $plan ) );
 			}
 		}
 	} else {
@@ -1027,7 +1025,7 @@ function ckpg_conekta_add_suscription_fields() {
 	if ( $product->is_type( array( 'simple', 'external' ) ) ) {
 		woocommerce_wp_select(
 			array(
-				'id'          => '_subscription_plans',
+				'id'          => '_subscription_plans_field',
 				'value'       => get_post_meta( (int) $post->ID, '_subscription_plans', true ),
 				'label'       => $gateway->lang_options['plan'],
 				'options'     => $plans,
@@ -1040,7 +1038,7 @@ function ckpg_conekta_add_suscription_fields() {
 			$variation = wc_get_product( $variation_id );
 			woocommerce_wp_select(
 				array(
-					'id'            => '_subscription_plans_' . $variation_id,
+					'id'            => '_subscription_plans_' . $variation_id . '_field',
 					'wrapper_class' => 'show_if_variable',
 					'value'         => get_post_meta( (int) $variation_id, '_subscription_plans_' . $variation_id, true ),
 					'label'         => $variation->get_name(),

@@ -21,13 +21,14 @@ const updateVariableProducts = function(){
 		}
 		jQuery(this).remove()
 	})
+	console.log(selection);
 	let variations = jQuery('.woocommerce_variation h3');
 	jQuery('#_is_subscription').prop('disabled', (variations.length === 0 && !variants))
 	variations.each(function() {
 		let text_id = jQuery(this).find('strong').text();
 		let product_name = jQuery('#title').val();
 		let id = parseInt(text_id.substring(1));
-		let variation_id = '_subscription_plans_' + id + '_field';
+		let variation_id = '_subscription_plans_' + id;
 		let variation_name = [];
 		jQuery(this).find('select').each(function(){
 			variation_name.push(jQuery(this).val());
@@ -38,10 +39,10 @@ const updateVariableProducts = function(){
 		Object.keys(plans).forEach( key => {
 			select.append(jQuery('<option></option>').attr('value', key).text(plans[key]));
 		})
-		if (selection[variation_id])
-			select.val(selection[variation_id])
+		if (selection[variation_id  + '_field' ])
+			select.val(selection[variation_id  + '_field' ])
 		let span = jQuery('<span></span>').addClass( 'description' ).text(conekta_product.plans_desc);
-		let variation = jQuery('<p></p>').addClass( variation_id ).addClass( 'form-field' )
+		let variation = jQuery('<p></p>').addClass( variation_id + '_field' ).addClass( 'form-field' )
 		variation.append(label).append(select).append(span);
 		jQuery('#conekta_subscriptions_inner').append(variation);
 	})
