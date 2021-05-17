@@ -961,9 +961,6 @@ function ckpg_conekta_add_suscriptions_tab( $tabs ) {
 	return $tabs;
 }
 
-function ckpg_update_variable_product_plans($product) {
-}
-
 /**
  * Saves subscription data with a product.
  *
@@ -975,14 +972,20 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 	if ( ! empty( $is_subscription ) ) {
 		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
 		$post_array = filter_input_array( INPUT_POST );
-		$plans_data = array_filter( $post_array, function( $element ){ return false !== strpos( $element, '_subscription_plans_' ); }, ARRAY_FILTER_USE_KEY );
-		foreach( $plans_data as $field => $plan ) {
-			$meta_key = str_replace('_field', '', $field);
+		$plans_data = array_filter(
+			$post_array,
+			function( $element ) {
+				return false !== strpos( $element, '_subscription_plans_' );
+			},
+			ARRAY_FILTER_USE_KEY
+		);
+		foreach ( $plans_data as $field => $plan ) {
+			$meta_key = str_replace( '_field', '', $field );
 			if ( 'variable' === $post_array['product-type'] ) {
-				$variant_name = explode( '_', $meta_key );
+				$variant_name   = explode( '_', $meta_key );
 				$variant_number = (int) $variant_name[ count( $variant_name ) - 1 ];
 				update_post_meta( $variant_number, $meta_key, esc_attr( $plan ) );
-			} elseif ( in_array($post_array['product-type'], array( 'simple', 'external' ) ) ) {
+			} elseif ( in_array( $post_array['product-type'], array( 'simple', 'external' ), true ) ) {
 				update_post_meta( $post_id, $meta_key, esc_attr( $plan ) );
 			}
 		}
@@ -1061,8 +1064,8 @@ function ckpg_conekta_add_suscription_fields() {
 			'conekta_product',
 			array(
 				'plans_desc' => $gateway->lang_options['plans_desc'],
-				'plans' => $plans,
-				'variants' => isset($variations) ? $variations : null,
+				'plans'      => $plans,
+				'variants'   => isset( $variations ) ? $variations : null,
 			)
 		);
 	}
@@ -1083,7 +1086,6 @@ function ckpg_conekta_subscription_tab_icon() {
 
 add_action( 'admin_head', 'ckpg_conekta_subscription_tab_icon' );
 add_action( 'woocommerce_product_data_panels', 'ckpg_conekta_add_suscription_fields' );
-add_action( 'woocommerce_variable_product_before_variations', 'ckpg_update_variable_product_plans' );
 
 add_filter( 'woocommerce_product_data_tabs', 'ckpg_conekta_add_suscriptions_tab' );
 add_filter( 'woocommerce_process_product_meta', 'ckpg_conekta_save_subscription_fields' );
