@@ -1033,6 +1033,7 @@ function ckpg_create_order() {
 					'phone' => filter_input( INPUT_POST, 'phone' ),
 				);
 				$customer      = \Conekta\Customer::create( $customer_data );
+				WC_Conekta_Plugin::ckpg_update_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 			}
 			$checkout    = WC()->checkout();
 			$posted_data = $checkout->get_posted_data();
