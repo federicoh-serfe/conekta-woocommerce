@@ -32,6 +32,7 @@
 			'11' => '11 - Noviembre',
 			'12' => '12 - Diciembre',
 		),
+		'conekta_title'          => 'Acepta tarjetas, efectivo o transferencia en tu tienda en línea',
 		'card_name'              => 'Nombre del tarjetahabiente',
 		'card_number'            => 'Número de la tarjeta',
 		'month_options'          => 'Mes de expiración',
