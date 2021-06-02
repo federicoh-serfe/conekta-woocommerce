@@ -337,7 +337,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'label'   => __( 'Turn on testing', 'woothemes' ),
 				'default' => 'no',
 			),
-			'card_title'                  => array(
+			'card_title'             => array(
 				'type'        => 'text',
 				'title'       => 'Card - ' . __( 'Title', 'woothemes' ),
 				'description' => __( 'This controls the title which the user sees during checkout.', 'woothemes' ),
