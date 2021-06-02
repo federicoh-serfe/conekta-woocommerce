@@ -769,7 +769,6 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		$this->order        = wc_get_order( $current_order_data->order_number );
 		$current_order      = \Conekta\Order::find( $current_order_data->order_id );
 		$payment_type       = $current_order->charges[0]->payment_method->object;
-		error_log($payment_type);
 		$this->order->set_payment_method( WC()->payment_gateways()->get_available_payment_gateways()[ $this->id ] );
 		if ( $this->ckpg_set_as_paid( $current_order_data ) ) {
 			$charge               = $current_order->charges[0];
