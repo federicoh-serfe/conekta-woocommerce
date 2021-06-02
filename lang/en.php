@@ -32,7 +32,7 @@
 			'11' => '11 - November',
 			'12' => '12 - December',
 		),
-		'conekta_title'          => 'Accept card, cash and transfers in your online store',
+		'conekta_title'          => 'Accept card, cash and bank transfers',
 		'card_name'              => 'Card holder name',
 		'card_number'            => 'Card number',
 		'month_options'          => 'Expiry month',
