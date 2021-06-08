@@ -13,10 +13,10 @@
 ?>
 
 <h3>
-	<?php esc_html_e( 'Credit and Debit Card Payment', 'woothemes' ); ?>
+	<?php esc_html_e( 'Conekta Payment', 'woothemes' ); ?>
 </h3>
 
-<p><?php esc_html_e( 'Allows Credit and Debit Card payments.', 'woothemes' ); ?></p>
+<p><?php esc_html_e( 'Allows payments with the Conekta platform.', 'woothemes' ); ?></p>
 
 <table class="form-table">
 	<?php $this->generate_settings_html(); ?>
