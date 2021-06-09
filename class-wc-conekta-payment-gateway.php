@@ -773,10 +773,11 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		if ( $this->ckpg_set_as_paid( $current_order_data ) ) {
 			$charge               = $current_order->charges[0];
 			$this->transaction_id = $charge->id;
-			if ( 'card_payment' === $payment_type ) {
-				$this->ckpg_completeOrder();
-				$this->order->set_payment_method_title( 'card' );
-				update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id );
+			if ( 'bank_transfer_payment' === $payment_type ) {
+				$this->order->set_payment_method_title( $this->settings['spei_title'] );
+				update_post_meta( $this->order->get_id(), 'conekta-clabe', $charge->payment_method->clabe );
+				// Mark as on-hold (we're awaiting the notification of payment).
+				$this->order->update_status( 'on-hold', __( 'Awaiting the conekta SPEI payment', 'woocommerce' ) );
 			} else {
 				if ( 'cash_payment' === $payment_type ) {
 					$this->order->set_payment_method_title( $this->settings['oxxo_title'] );
@@ -784,10 +785,9 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 					// Mark as on-hold (we're awaiting the notification of payment).
 					$this->order->update_status( 'on-hold', __( 'Awaiting the conekta OXXO payment', 'woocommerce' ) );
 				} else {
-					$this->order->set_payment_method_title( $this->settings['spei_title'] );
-					update_post_meta( $this->order->get_id(), 'conekta-clabe', $charge->payment_method->clabe );
-					// Mark as on-hold (we're awaiting the notification of payment).
-					$this->order->update_status( 'on-hold', __( 'Awaiting the conekta SPEI payment', 'woocommerce' ) );
+					$this->ckpg_completeOrder();
+					$this->order->set_payment_method_title( 'card' );
+					update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id );
 				}
 				update_post_meta( $this->order->get_id(), 'conekta-id', $charge->id );
 				update_post_meta( $this->order->get_id(), 'conekta-creado', $charge->created_at );
@@ -1170,6 +1170,19 @@ function ckpg_create_order() {
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
 
+			$subscriptions = array_filter(WC()->cart->get_cart(),
+			function ( $element ) { 
+				return get_post_meta( (int) $element['product_id'] , '_is_subscription', true ) === 'yes';
+			});
+			$has_subscriptions = ! empty( $subscriptions );
+			$product_subscription = array();
+			if ( $has_subscriptions ) {
+				$product_subscription = reset( $subscriptions );
+				if ( 1 < count( $subscriptions ) || 1 < $product_subscription['quantity'] ) {
+					throw new Exception("More than one subscription in cart");
+				}
+			}
+
 			$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
 			if ( ! empty( $customer_id ) ) {
 				$customer = \Conekta\Customer::find( $customer_id );
@@ -1197,7 +1210,7 @@ function ckpg_create_order() {
 			$order_metadata = ckpg_build_order_metadata( $wc_order, $gateway->settings );
 
 			$allowed_installments = array();
-			if ( $gateway->enable_meses && 'yes' === $gateway->settings['enable_card'] ) {
+			if ( $gateway->enable_meses && 'yes' === $gateway->settings['enable_card'] && ! $has_subscriptions ) {
 				$total = (float) WC()->cart->total;
 				foreach ( array_keys( $gateway->lang_options['monthly_installments'] ) as $month ) {
 					if ( ! empty( $gateway->settings['amount_monthly_install'] ) ) {
@@ -1231,10 +1244,10 @@ function ckpg_create_order() {
 			if ( 'yes' === $gateway->settings['enable_card'] ) {
 				$allowed_payment_methods[] = 'card';
 			}
-			if ( 'yes' === $gateway->settings['enable_cash'] ) {
+			if ( 'yes' === $gateway->settings['enable_cash'] && ! $has_subscriptions ) {
 				$allowed_payment_methods[] = 'cash';
 			}
-			if ( 'yes' === $gateway->settings['enable_spei'] ) {
+			if ( 'yes' === $gateway->settings['enable_spei'] && ! $has_subscriptions ) {
 				$allowed_payment_methods[] = 'bank_transfer';
 			}
 
@@ -1245,6 +1258,14 @@ function ckpg_create_order() {
 				'force_3ds_flow'               => ( 'yes' === $gateway->settings['3ds'] ),
 				'on_demand_enabled'            => ( 'yes' === $gateway->enable_save_card ),
 			);
+
+			if ( $has_subscriptions ) {
+				$product_id = $product_subscription['product_id'];
+				$plan = get_post_meta( (int) $product_id, '_subscription_plans', true);
+				if ( ! empty( $plan ) ) {
+					$checkout['plan_id'] = $plan;
+				}
+			}
 
 			if ( in_array( 'cash', $allowed_payment_methods, true ) ) {
 				$checkout['expires_at'] = $gateway->ckpg_expiration_payment();
@@ -1300,6 +1321,10 @@ function ckpg_create_order() {
 		if ( null !== $order_id ) {
 			wp_delete_post( $order_id, true );
 		}
+		$response = array(
+			'error' => $e->getMessage(),
+		);
+	} catch ( Exception $e ) {
 		$response = array(
 			'error' => $e->getMessage(),
 		);
