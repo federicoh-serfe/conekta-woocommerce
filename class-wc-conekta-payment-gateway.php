@@ -71,12 +71,11 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 	public function __construct() {
 		global $woocommerce;
 		$this->id           = 'conektacard';
-		$this->method_title = __( 'Conekta Payment', 'conektacard' );
+		$this->method_title = __( 'Conekta', 'conektacard' );
 		$this->has_fields   = true;
 		$this->ckpg_init_form_fields();
 		$this->init_settings();
 
-		$this->title                = $this->settings['title'];
 		$this->description          = '';
 		$this->icon                 = $this->settings['alternate_imageurl'] ?
 			$this->settings['alternate_imageurl'] : WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) )
@@ -91,6 +90,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		$this->publishable_key      = $this->use_sandbox_api ? $this->test_publishable_key : $this->live_publishable_key;
 		$this->secret_key           = $this->use_sandbox_api ? $this->test_api_key : $this->live_api_key;
 		$this->lang_options         = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
+		$this->title                = $this->lang_options['conekta_title'];
 		$this->enable_save_card     = $this->settings['enable_save_card'];
 		$this->account_owner        = $this->settings['account_owner'];
 
@@ -328,7 +328,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 			'enabled'                => array(
 				'type'    => 'checkbox',
 				'title'   => __( 'Enable/Disable', 'woothemes' ),
-				'label'   => __( 'Enable Credit Card Payment', 'woothemes' ),
+				'label'   => __( 'Enable Conekta Payment', 'woothemes' ),
 				'default' => 'yes',
 			),
 			'debug'                  => array(
@@ -337,11 +337,11 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'label'   => __( 'Turn on testing', 'woothemes' ),
 				'default' => 'no',
 			),
-			'title'                  => array(
+			'card_title'             => array(
 				'type'        => 'text',
 				'title'       => 'Card - ' . __( 'Title', 'woothemes' ),
 				'description' => __( 'This controls the title which the user sees during checkout.', 'woothemes' ),
-				'default'     => __( 'Pago con Conekta', 'woothemes' ),
+				'default'     => __( 'Pago con Tarjeta de crédito o débito', 'woothemes' ),
 			),
 			'oxxo_title'             => array(
 				'type'        => 'text',
@@ -785,8 +785,8 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 					// Mark as on-hold (we're awaiting the notification of payment).
 					$this->order->update_status( 'on-hold', __( 'Awaiting the conekta OXXO payment', 'woocommerce' ) );
 				} else {
+					$this->order->set_payment_method_title( $this->settings['card_title'] );
 					$this->ckpg_completeOrder();
-					$this->order->set_payment_method_title( 'card' );
 					update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id );
 				}
 				update_post_meta( $this->order->get_id(), 'conekta-id', $charge->id );
@@ -1193,6 +1193,7 @@ function ckpg_create_order() {
 					'phone' => filter_input( INPUT_POST, 'phone' ),
 				);
 				$customer      = \Conekta\Customer::create( $customer_data );
+				WC_Conekta_Plugin::ckpg_update_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 			}
 			$checkout    = WC()->checkout();
 			$posted_data = $checkout->get_posted_data();
