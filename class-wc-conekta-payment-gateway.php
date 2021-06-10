@@ -773,11 +773,10 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		if ( $this->ckpg_set_as_paid( $current_order_data ) ) {
 			$charge               = $current_order->charges[0];
 			$this->transaction_id = $charge->id;
-			if ( 'bank_transfer_payment' === $payment_type ) {
-				$this->order->set_payment_method_title( $this->settings['spei_title'] );
-				update_post_meta( $this->order->get_id(), 'conekta-clabe', $charge->payment_method->clabe );
-				// Mark as on-hold (we're awaiting the notification of payment).
-				$this->order->update_status( 'on-hold', __( 'Awaiting the conekta SPEI payment', 'woocommerce' ) );
+			if ( 'card_payment' === $payment_type ) {
+				$this->order->set_payment_method_title( $this->settings['card_title'] );
+				$this->ckpg_completeOrder();
+				update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id );
 			} else {
 				if ( 'cash_payment' === $payment_type ) {
 					$this->order->set_payment_method_title( $this->settings['oxxo_title'] );
@@ -785,9 +784,10 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 					// Mark as on-hold (we're awaiting the notification of payment).
 					$this->order->update_status( 'on-hold', __( 'Awaiting the conekta OXXO payment', 'woocommerce' ) );
 				} else {
-					$this->order->set_payment_method_title( $this->settings['card_title'] );
-					$this->ckpg_completeOrder();
-					update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id );
+					$this->order->set_payment_method_title( $this->settings['spei_title'] );
+					update_post_meta( $this->order->get_id(), 'conekta-clabe', $charge->payment_method->clabe );
+					// Mark as on-hold (we're awaiting the notification of payment).
+					$this->order->update_status( 'on-hold', __( 'Awaiting the conekta SPEI payment', 'woocommerce' ) );
 				}
 				update_post_meta( $this->order->get_id(), 'conekta-id', $charge->id );
 				update_post_meta( $this->order->get_id(), 'conekta-creado', $charge->created_at );
