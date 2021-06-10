@@ -768,7 +768,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		$current_order_data = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		$this->order        = wc_get_order( $current_order_data->order_number );
 		$current_order      = (array) \Conekta\Order::find( $current_order_data->order_id );
-		$charges             = isset($current_order['charges']) ? $current_order['charges'] : null;
+		$charges            = isset( $current_order['charges'] ) ? $current_order['charges'] : null;
 		$payment_type       = empty( $charges ) ? null : $charges[0]['payment_method']['object'];
 		$this->order->set_payment_method( WC()->payment_gateways()->get_available_payment_gateways()[ $this->id ] );
 		if ( $this->ckpg_set_as_paid( $current_order_data ) ) {
@@ -1155,6 +1155,7 @@ function set_billing_data( $wc_order ) {
  * Creates the order in WooCommerce and reutrns an AJAX response with its data to javascript.
  *
  * @access public
+ * @throws Exception Caught when subscriptions are multiple or mixed with products.
  */
 function ckpg_create_order() {
 	global $woocommerce;
@@ -1171,19 +1172,21 @@ function ckpg_create_order() {
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
 
-			$subscriptions = array_filter(WC()->cart->get_cart(),
-			function ( $element ) { 
-				return get_post_meta( (int) $element['product_id'] , '_is_subscription', true ) === 'yes';
-			});
-			$has_subscriptions = ! empty( $subscriptions );
+			$subscriptions        = array_filter(
+				WC()->cart->get_cart(),
+				function ( $element ) {
+					return get_post_meta( (int) $element['product_id'], '_is_subscription', true ) === 'yes';
+				}
+			);
+			$has_subscriptions    = ! empty( $subscriptions );
 			$product_subscription = array();
 			if ( $has_subscriptions ) {
 				$product_subscription = reset( $subscriptions );
 				if ( 1 < count( $subscriptions ) || 1 < $product_subscription['quantity'] ) {
-					throw new Exception($gateway->lang_options['error_multiple']);
+					throw new Exception( $gateway->lang_options['error_multiple'] ); // phpcs:ignore WordPress.Squiz.Commenting.FunctionCommentThrowTag
 				}
 				if ( count( WC()->cart->get_cart() ) !== count( $subscriptions ) ) {
-					throw new Exception($gateway->lang_options['error_mixed']);
+					throw new Exception( $gateway->lang_options['error_mixed'] ); // phpcs:ignore WordPress.Squiz.Commenting.FunctionCommentThrowTag
 				}
 			}
 
@@ -1265,9 +1268,9 @@ function ckpg_create_order() {
 			);
 
 			if ( $has_subscriptions ) {
-				$is_simple = empty( $product_subscription['variation'] );
+				$is_simple  = empty( $product_subscription['variation'] );
 				$product_id = $is_simple ? $product_subscription['product_id'] : $product_subscription['variation_id'];
-				$plan = get_post_meta( (int) $product_id, '_subscription_plans' . ( $is_simple ? '' : '_' . $product_id ), true);
+				$plan       = get_post_meta( (int) $product_id, '_subscription_plans' . ( $is_simple ? '' : '_' . $product_id ), true );
 				if ( ! empty( $plan ) ) {
 					$checkout['plan_id'] = $plan;
 				}
