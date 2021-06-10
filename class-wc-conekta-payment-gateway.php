@@ -1179,7 +1179,10 @@ function ckpg_create_order() {
 			if ( $has_subscriptions ) {
 				$product_subscription = reset( $subscriptions );
 				if ( 1 < count( $subscriptions ) || 1 < $product_subscription['quantity'] ) {
-					throw new Exception("More than one subscription in cart");
+					throw new Exception($gateway->lang_options['error_multiple']);
+				}
+				if ( count( WC()->cart->get_cart() ) !== count( $subscriptions ) ) {
+					throw new Exception($gateway->lang_options['error_mixed']);
 				}
 			}
 
@@ -1261,8 +1264,9 @@ function ckpg_create_order() {
 			);
 
 			if ( $has_subscriptions ) {
-				$product_id = $product_subscription['product_id'];
-				$plan = get_post_meta( (int) $product_id, '_subscription_plans', true);
+				$is_simple = empty( $product_subscription['variation'] );
+				$product_id = $is_simple ? $product_subscription['product_id'] : $product_subscription['variation_id'];
+				$plan = get_post_meta( (int) $product_id, '_subscription_plans' . ( $is_simple ? '' : '_' . $product_id ), true);
 				if ( ! empty( $plan ) ) {
 					$checkout['plan_id'] = $plan;
 				}

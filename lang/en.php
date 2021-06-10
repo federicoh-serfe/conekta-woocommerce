@@ -54,4 +54,6 @@
 		'plan'                   => 'Plan',
 		'plans'                  => 'Plans',
 		'plans_desc'             => 'Choose the payment plan for this product',
+		'error_mixed'            => 'The cart has both products and subscriptions',
+		'error_multiple'         => 'The cart has multiple subscriptions',
 	);
