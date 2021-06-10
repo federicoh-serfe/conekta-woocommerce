@@ -767,13 +767,14 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		wp_delete_post( $order_id, true );
 		$current_order_data = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		$this->order        = wc_get_order( $current_order_data->order_number );
-		$current_order      = \Conekta\Order::find( $current_order_data->order_id );
-		$payment_type       = $current_order->charges[0]->payment_method->object;
+		$current_order      = (array) \Conekta\Order::find( $current_order_data->order_id );
+		$charges             = isset($current_order['charges']) ? $current_order['charges'] : null;
+		$payment_type       = empty( $charges ) ? null : $charges[0]['payment_method']['object'];
 		$this->order->set_payment_method( WC()->payment_gateways()->get_available_payment_gateways()[ $this->id ] );
 		if ( $this->ckpg_set_as_paid( $current_order_data ) ) {
-			$charge               = $current_order->charges[0];
-			$this->transaction_id = $charge->id;
-			if ( 'card_payment' === $payment_type ) {
+			$charge               = $charges[0];
+			$this->transaction_id = $charge['id'];
+			if ( 'card_payment' === $payment_type || ! empty( $current_order['checkout']['plan_id'] ) ) {
 				$this->order->set_payment_method_title( $this->settings['card_title'] );
 				$this->ckpg_completeOrder();
 				update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id );
