@@ -56,4 +56,5 @@
 		'plans_desc'             => 'Elegir el plan de pago de este producto',
 		'error_mixed'            => 'El carrito mezcla suscripciones y productos.',
 		'error_multiple'         => 'El carrito tiene más de una suscripción.',
+		'no_plan'                => 'Sin Plan',
 	);

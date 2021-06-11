@@ -181,7 +181,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 			$charge   = $conekta_order['charges']['data'][0];
 			$order_id = $conekta_order['metadata']['reference_id'];
 			$order    = wc_get_order( $order_id );
-			if ( 'spei' === $charge['payment_method']['type'] && 'order.paid' !== strpos( $event['type'], false ) ) {
+			if ( 'spei' === $charge['payment_method']['type'] && false !== strpos( $event['type'], 'order.paid' ) ) {
 				$paid_at = gmdate( 'Y-m-d', $charge['paid_at'] );
 				update_post_meta( $order->get_id(), 'conekta-paid-at', $paid_at );
 				$order->payment_complete();
@@ -214,6 +214,60 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 					$order->update_status( 'cancelled', __( 'Order has been cancelled', 'woocommerce' ) );
 				}
 			}
+		} elseif ( 'plan' === $conekta_order['object'] && false !== strpos( $event['type'], 'plan.deleted' ) ) {
+			$plan_id = $conekta_order['id'];
+			if ( ! empty( $plan_id ) ) {
+				$this->ckpg_conekta_delete_plan_from_products( $plan_id );
+			}
+		}
+	}
+
+	/**
+	 * Delete a plan from all of its products.
+	 *
+	 * @access public
+	 * @param int $plan_id  ID of the deleted plan.
+	 */
+	public function ckpg_conekta_delete_plan_from_products( $plan_id ) {
+		$products = parent::get_meta_by_value( '_subscription_plans%', $plan_id );
+		foreach ( $products as $product_id ) {
+			$product = wc_get_product( $product_id );
+			$type    = $product->get_type();
+			if ( in_array( $type, array( 'simple', 'external' ), true ) ) {
+				update_post_meta( $product_id, '_is_subscription', esc_attr( 'no' ) );
+				$meta_key = '_subscription_plans';
+				delete_post_meta( $product_id, $meta_key );
+			} else {
+				update_post_meta( $product_id, '_subscription_plans_' . $product_id, 'none' );
+				$parent = $product->get_parent_id();
+				if ( ! empty( $parent ) ) {
+					$this->ckpg_conekta_deactivate_subscriptions( $parent );
+				}
+			}
+		}
+	}
+
+	/**
+	 * Deactivates subscriptions if no variants have plans.
+	 *
+	 * @access public
+	 * @param int $product_id  ID of the product whose variants are to be checked.
+	 */
+	public function ckpg_conekta_deactivate_subscriptions( $product_id ) {
+		$product   = wc_get_product( $product_id );
+		$no_more   = true;
+		$variants  = $product->get_children();
+		$var_count = count( $variants );
+		$i         = 0;
+		while ( $no_more && $i < $var_count ) {
+			$variant_id = $variants[ $i ];
+			if ( 'none' !== get_post_meta( (int) $variant_id, '_subscription_plans_' . $variant_id, true ) ) {
+				$no_more = false;
+			}
+			$i++;
+		}
+		if ( $no_more ) {
+			update_post_meta( $product_id, '_is_subscription', esc_attr( 'no' ) );
 		}
 	}
 
@@ -977,7 +1031,6 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 	\Conekta\Conekta::setLocale( 'es' );
 	$is_subscription = filter_input( INPUT_POST, '_is_subscription' );
 	if ( ! empty( $is_subscription ) ) {
-		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
 		$post_array = filter_input_array( INPUT_POST );
 		$plans_data = array_filter(
 			$post_array,
@@ -989,31 +1042,38 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 		foreach ( $plans_data as $field => $plan ) {
 			$meta_key = str_replace( '_field', '', $field );
 			try {
-				$conekta_plan = \Conekta\Plan::find( $plan );
+				$conekta_plan = 'none' === $plan ? array() : \Conekta\Plan::find( $plan );
 				if ( 'variable' === $post_array['product-type'] ) {
 					$variant_name   = explode( '_', $meta_key );
 					$variant_number = $variant_name[ count( $variant_name ) - 1 ];
-					$variant_index = array_search($variant_number, $post_array['variable_post_id']);
-					$sale_price = $post_array['variable_sale_price'][ $variant_index ];
-					$price = empty( $sale_price ) ? (float) $post_array['variable_regular_price'][ $variant_index ] : (float) $sale_price;
-					if ( $price !== ( (float) $conekta_plan['amount'] / 100 ) ) {
+					$variant_index  = array_search( $variant_number, $post_array['variable_post_id'], true );
+					$sale_price     = $post_array['variable_sale_price'][ $variant_index ];
+					$price          = empty( $sale_price ) ? (float) $post_array['variable_regular_price'][ $variant_index ] : (float) $sale_price;
+					if ( 'none' !== $plan && ( (float) $conekta_plan['amount'] / 100 ) !== $price ) {
 						WC_Admin_Meta_Boxes::add_error( 'El producto ' . $post_array['post_title'] . ' no tiene el mismo precio que el plan ' . $conekta_plan['name'] );
+						update_post_meta( $variant_number, $meta_key, esc_attr( 'none' ) );
 					} else {
 						update_post_meta( $variant_number, $meta_key, esc_attr( $plan ) );
 					}
 				} elseif ( in_array( $post_array['product-type'], array( 'simple', 'external' ), true ) ) {
-					$sale_price = $post_array['_sale_price'];
-					$price = empty( $sale_price ) ? (float) $post_array['_regular_price'] : (float) $sale_price;
-					if ( $price !== ( (float) $conekta_plan['amount'] / 100 ) ) {
-						WC_Admin_Meta_Boxes::add_error( 'El producto no tiene el mismo precio que el plan ' . $conekta_plan['name'] );
+					if ( 'none' === $plan ) {
+						$is_subscription = 'no';
 					} else {
-						update_post_meta( $post_id, $meta_key, esc_attr( $plan ) );
+						$sale_price = $post_array['_sale_price'];
+						$price      = empty( $sale_price ) ? (float) $post_array['_regular_price'] : (float) $sale_price;
+						if ( ( (float) $conekta_plan['amount'] / 100 ) !== $price ) {
+							WC_Admin_Meta_Boxes::add_error( 'El producto no tiene el mismo precio que el plan ' . $conekta_plan['name'] );
+							$is_subscription = 'no';
+						} else {
+							update_post_meta( $post_id, $meta_key, esc_attr( $plan ) );
+						}
 					}
 				}
 			} catch ( Exception $e ) {
 				WC_Admin_Meta_Boxes::add_error( 'Hubo un error al guardar las suscripciones del producto' );
 			}
 		}
+		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
 	} else {
 		update_post_meta( $post_id, '_is_subscription', esc_attr( 'no' ) );
 	}
@@ -1061,6 +1121,7 @@ function ckpg_conekta_add_suscription_fields() {
 			)
 		);
 	} elseif ( $product->is_type( 'variable' ) ) {
+		$plans      = array_merge( array( 'none' => $gateway->lang_options['no_plan'] ), $plans );
 		$variations = array();
 		foreach ( $product->get_children() as $variation_id ) {
 			$variation = wc_get_product( $variation_id );
@@ -1089,6 +1150,7 @@ function ckpg_conekta_add_suscription_fields() {
 			'conekta_product',
 			array(
 				'plans_desc' => $gateway->lang_options['plans_desc'],
+				'no_plan'    => $gateway->lang_options['no_plan'],
 				'plans'      => $plans,
 				'variants'   => isset( $variations ) ? $variations : null,
 			)
@@ -1199,7 +1261,17 @@ function ckpg_create_order() {
 			$subscriptions        = array_filter(
 				WC()->cart->get_cart(),
 				function ( $element ) {
-					return get_post_meta( (int) $element['product_id'], '_is_subscription', true ) === 'yes';
+					if ( 'yes' !== get_post_meta( (int) $element['product_id'], '_is_subscription', true ) ) {
+						return false;
+					} else {
+						$type = $element['data']->get_type();
+						if ( 'variation' !== $type ) {
+							return true;
+						} else {
+							$variation_id = (int) $element['variation_id'];
+							return 'none' !== get_post_meta( $variation_id, '_subscription_plans_' . $variation_id, true );
+						}
+					}
 				}
 			);
 			$has_subscriptions    = ! empty( $subscriptions );
@@ -1295,7 +1367,7 @@ function ckpg_create_order() {
 				$is_simple  = empty( $product_subscription['variation'] );
 				$product_id = $is_simple ? $product_subscription['product_id'] : $product_subscription['variation_id'];
 				$plan       = get_post_meta( (int) $product_id, '_subscription_plans' . ( $is_simple ? '' : '_' . $product_id ), true );
-				if ( ! empty( $plan ) ) {
+				if ( ! empty( $plan ) && 'none' !== $plan ) {
 					$checkout['plan_id'] = $plan;
 				}
 			}

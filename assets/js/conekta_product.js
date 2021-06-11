@@ -6,6 +6,7 @@ const plansField = function() {
 document.getElementById('_is_subscription').onchange = plansField;
 window.onload = function() {
 	plansField();
+	jQuery('#conekta_subscriptions_inner').find('option[value="none"]').attr('hidden', true)
 }
 let plans = conekta_product.plans;
 let variants = conekta_product.variants;
@@ -21,7 +22,6 @@ const updateVariableProducts = function(){
 		}
 		jQuery(this).remove()
 	})
-	console.log(selection);
 	let variations = jQuery('.woocommerce_variation h3');
 	jQuery('#_is_subscription').prop('disabled', (variations.length === 0 && !variants))
 	variations.each(function() {
@@ -36,6 +36,8 @@ const updateVariableProducts = function(){
 		variation_name = variation_name.join(', ')
 		let label = jQuery('<label></label>').attr('for', variation_id).text(product_name + ' - ' + variation_name);
 		let select = jQuery('<select></select>').attr( 'name', variation_id ).attr( 'id', variation_id ).addClass( 'select' ).addClass( 'short' );
+		if(!plans['none'])
+			select.append(jQuery('<option></option>').attr('value', 'none').text(conekta_product.no_plan));
 		Object.keys(plans).forEach( key => {
 			select.append(jQuery('<option></option>').attr('value', key).text(plans[key]));
 		})
@@ -45,6 +47,7 @@ const updateVariableProducts = function(){
 		let variation = jQuery('<p></p>').addClass( variation_id + '_field' ).addClass( 'form-field' )
 		variation.append(label).append(select).append(span);
 		jQuery('#conekta_subscriptions_inner').append(variation);
+		jQuery(select).find('option[value="none"]').attr('hidden', true)
 	})
 }
 
@@ -72,6 +75,7 @@ const updateSimpleProducts = function(){
 	let product = jQuery('<p></p>').addClass( id ).addClass( 'form-field' )
 	product.append(label).append(select).append(span);
 	jQuery('#conekta_subscriptions_inner').append(product);
+	jQuery(select).find('option[value="none"]').attr('hidden', true)
 }
 
 const containsAll = (arr1, arr2) => arr2.every(arr2Item => arr1.includes(arr2Item))
