@@ -969,6 +969,12 @@ function ckpg_conekta_add_suscriptions_tab( $tabs ) {
  * @param int $post_id id of the posted product element.
  */
 function ckpg_conekta_save_subscription_fields( $post_id ) {
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	\Conekta\Conekta::setApiKey( $gateway->secret_key );
+	\Conekta\Conekta::setApiVersion( '2.0.0' );
+	\Conekta\Conekta::setPlugin( $gateway->name );
+	\Conekta\Conekta::setPluginVersion( $gateway->version );
+	\Conekta\Conekta::setLocale( 'es' );
 	$is_subscription = filter_input( INPUT_POST, '_is_subscription' );
 	if ( ! empty( $is_subscription ) ) {
 		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
@@ -982,12 +988,30 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 		);
 		foreach ( $plans_data as $field => $plan ) {
 			$meta_key = str_replace( '_field', '', $field );
-			if ( 'variable' === $post_array['product-type'] ) {
-				$variant_name   = explode( '_', $meta_key );
-				$variant_number = (int) $variant_name[ count( $variant_name ) - 1 ];
-				update_post_meta( $variant_number, $meta_key, esc_attr( $plan ) );
-			} elseif ( in_array( $post_array['product-type'], array( 'simple', 'external' ), true ) ) {
-				update_post_meta( $post_id, $meta_key, esc_attr( $plan ) );
+			try {
+				$conekta_plan = \Conekta\Plan::find( $plan );
+				if ( 'variable' === $post_array['product-type'] ) {
+					$variant_name   = explode( '_', $meta_key );
+					$variant_number = $variant_name[ count( $variant_name ) - 1 ];
+					$variant_index = array_search($variant_number, $post_array['variable_post_id']);
+					$sale_price = $post_array['variable_sale_price'][ $variant_index ];
+					$price = empty( $sale_price ) ? (float) $post_array['variable_regular_price'][ $variant_index ] : (float) $sale_price;
+					if ( $price !== ( (float) $conekta_plan['amount'] / 100 ) ) {
+						WC_Admin_Meta_Boxes::add_error( 'El producto ' . $post_array['post_title'] . ' no tiene el mismo precio que el plan ' . $conekta_plan['name'] );
+					} else {
+						update_post_meta( $variant_number, $meta_key, esc_attr( $plan ) );
+					}
+				} elseif ( in_array( $post_array['product-type'], array( 'simple', 'external' ), true ) ) {
+					$sale_price = $post_array['_sale_price'];
+					$price = empty( $sale_price ) ? (float) $post_array['_regular_price'] : (float) $sale_price;
+					if ( $price !== ( (float) $conekta_plan['amount'] / 100 ) ) {
+						WC_Admin_Meta_Boxes::add_error( 'El producto no tiene el mismo precio que el plan ' . $conekta_plan['name'] );
+					} else {
+						update_post_meta( $post_id, $meta_key, esc_attr( $plan ) );
+					}
+				}
+			} catch ( Exception $e ) {
+				WC_Admin_Meta_Boxes::add_error( 'Hubo un error al guardar las suscripciones del producto' );
 			}
 		}
 	} else {
@@ -1010,7 +1034,7 @@ function ckpg_conekta_add_suscription_fields() {
 	\Conekta\Conekta::setLocale( 'es' );
 	$plans = array();
 	foreach ( \Conekta\Plan::all() as $p ) {
-		$plans[ $p['id'] ] = $p['name'];
+		$plans[ $p['id'] ] = $p['name'] . ' - $' . ( $p['amount'] / 100 );
 	}
 	?><div id="conekta_subscriptions" class="panel woocommerce_options_panel">
 		<div id="conekta_subscriptions_inner">
