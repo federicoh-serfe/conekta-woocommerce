@@ -1279,10 +1279,10 @@ function ckpg_create_order() {
 			if ( $has_subscriptions ) {
 				$product_subscription = reset( $subscriptions );
 				if ( 1 < count( $subscriptions ) || 1 < $product_subscription['quantity'] ) {
-					throw new Exception( $gateway->lang_options['error_multiple'] ); // phpcs:ignore WordPress.Squiz.Commenting.FunctionCommentThrowTag
+					throw new Exception( $gateway->lang_options['error_multiple'] );
 				}
 				if ( count( WC()->cart->get_cart() ) !== count( $subscriptions ) ) {
-					throw new Exception( $gateway->lang_options['error_mixed'] ); // phpcs:ignore WordPress.Squiz.Commenting.FunctionCommentThrowTag
+					throw new Exception( $gateway->lang_options['error_mixed'] );
 				}
 			}
 
