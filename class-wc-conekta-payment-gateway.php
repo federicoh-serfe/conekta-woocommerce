@@ -1039,9 +1039,9 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 			},
 			ARRAY_FILTER_USE_KEY
 		);
-		foreach ( $plans_data as $field => $plan ) {
-			$meta_key = str_replace( '_field', '', $field );
-			try {
+		try {
+			foreach ( $plans_data as $field => $plan ) {
+				$meta_key = str_replace( '_field', '', $field );
 				$conekta_plan = 'none' === $plan ? array() : \Conekta\Plan::find( $plan );
 				if ( 'variable' === $post_array['product-type'] ) {
 					$variant_name   = explode( '_', $meta_key );
@@ -1069,9 +1069,9 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 						}
 					}
 				}
-			} catch ( Exception $e ) {
-				WC_Admin_Meta_Boxes::add_error( 'Hubo un error al guardar las suscripciones del producto' );
 			}
+		} catch ( Exception $e ) {
+			WC_Admin_Meta_Boxes::add_error( 'Hubo un error al guardar las suscripciones del producto' );
 		}
 		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
 	} else {
