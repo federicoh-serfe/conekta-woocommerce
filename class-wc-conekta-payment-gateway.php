@@ -775,7 +775,8 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		}
 		$this->order->add_order_note(
 			sprintf(
-				'%s " . $payment_method . " Payment Failed : "%s"',
+				'%s %s Payment Failed : "%s"',
+				$payment_method,
 				$this->gateway_name,
 				$this->transaction_error_message
 			)
@@ -1041,7 +1042,7 @@ function ckpg_conekta_save_subscription_fields( $post_id ) {
 		);
 		try {
 			foreach ( $plans_data as $field => $plan ) {
-				$meta_key = str_replace( '_field', '', $field );
+				$meta_key     = str_replace( '_field', '', $field );
 				$conekta_plan = 'none' === $plan ? array() : \Conekta\Plan::find( $plan );
 				if ( 'variable' === $post_array['product-type'] ) {
 					$variant_name   = explode( '_', $meta_key );
