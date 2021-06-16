@@ -1481,27 +1481,30 @@ function ckpg_create_order() {
 add_action( 'wp_ajax_nopriv_ckpg_create_order', 'ckpg_create_order' );
 add_action( 'wp_ajax_ckpg_create_order', 'ckpg_create_order' );
 
-const CONEKTA_HEADERS = array(
-	'Accept'        => 'application/vnd.conekta-v2.0.0+json',
-	'Cache-Control' => 'no-cache',
-	'Content-Type'  => 'application/json',
-	'Authorization' => 'Basic a2V5X0dDOEZXNW52OFdFS1NmM2gzcHB5eHc6Og==',
-);
-
 /**
  * Connects to Conekta API to retrieve information.
  *
  * @access public
  */
 function ckpg_get_conekta_data() {
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
 	$response = wp_remote_get(
 		filter_input( INPUT_POST, 'link' ),
 		array(
 			'timeout' => 10,
-			'headers' => CONEKTA_HEADERS,
+			'headers' => array(
+				'Accept'        => 'application/vnd.conekta-v2.0.0+json',
+				'Cache-Control' => 'no-cache',
+				'Content-Type'  => 'application/json',
+				'Authorization' => 'Basic ' . base64_encode($gateway->secret_key . ':'),
+			)
 		)
 	);
-	wp_send_json( json_decode( $response['body'] ) );
+	if ( 200 === $response['response']['code'] ) {
+		wp_send_json( json_decode( $response['body'] ) );
+	} else {
+		wp_send_json_error( array(), 500 );
+	}
 }
 
 add_action( 'wp_ajax_ckpg_get_conekta_data', 'ckpg_get_conekta_data' );
