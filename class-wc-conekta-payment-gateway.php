@@ -164,6 +164,25 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 	}
 
 	/**
+	 * Initializes the Conekta Plans submenu page.
+	 *
+	 * @access public
+	 */
+	public function ckpg_conekta_submenu_page() {
+		include_once 'templates/plans.php';
+		wp_register_script( 'conekta_subscriptions', 'http://localhost:8040/script', array( 'jquery' ), '1.0', true ); // check import convention.
+		wp_enqueue_script( 'conekta_subscriptions' );
+		wp_localize_script(
+			'conekta_subscriptions',
+			'conekta_subscriptions',
+			array(
+				'ajaxurl' => admin_url( 'admin-ajax.php' ),
+				'locale'  => get_locale(),
+			)
+		);
+	}
+
+	/**
 	 * Updates the status of the order.
 	 *
 	 * @access public
@@ -1179,6 +1198,28 @@ add_filter( 'woocommerce_product_data_tabs', 'ckpg_conekta_add_suscriptions_tab'
 add_filter( 'woocommerce_process_product_meta', 'ckpg_conekta_save_subscription_fields' );
 
 /**
+ * Register the Conekta submenu.
+ *
+ * @access public
+ */
+function ckpg_register_conekta_submenu_page() {
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	$hook    = add_menu_page(
+		$gateway->lang_options['home'],
+		'Conekta',
+		'manage_options',
+		'conekta_menu',
+		array( $gateway, 'ckpg_conekta_submenu_page' ),
+		plugins_url( plugin_basename( dirname( __FILE__ ) ) . '/assets/images/conekta-logo.png' ),
+		66
+	);
+	add_submenu_page( 'conekta_menu', $gateway->lang_options['home'], $gateway->lang_options['home'], 'manage_options', 'conekta_menu', '' );
+	remove_submenu_page( 'conekta_menu', 'conekta_menu' );
+	add_submenu_page( 'conekta_menu', $gateway->lang_options['subscriptions'], $gateway->lang_options['subscriptions'], 'manage_options', 'conekta_subscriptions', array( WC()->payment_gateways->get_available_payment_gateways()['conektacard'], 'ckpg_conekta_submenu_page' ) );
+}
+add_action( 'admin_menu', 'ckpg_register_conekta_submenu_page', 70 );
+
+/**
  * Deletes a card payment method from the database.
  *
  * @access public
@@ -1439,3 +1480,28 @@ function ckpg_create_order() {
 }
 add_action( 'wp_ajax_nopriv_ckpg_create_order', 'ckpg_create_order' );
 add_action( 'wp_ajax_ckpg_create_order', 'ckpg_create_order' );
+
+const CONEKTA_HEADERS = array(
+	'Accept'        => 'application/vnd.conekta-v2.0.0+json',
+	'Cache-Control' => 'no-cache',
+	'Content-Type'  => 'application/json',
+	'Authorization' => 'Basic a2V5X0dDOEZXNW52OFdFS1NmM2gzcHB5eHc6Og==',
+);
+
+/**
+ * Connects to Conekta API to retrieve information.
+ *
+ * @access public
+ */
+function ckpg_get_conekta_data() {
+	$response = wp_remote_get(
+		filter_input( INPUT_POST, 'link' ),
+		array(
+			'timeout' => 10,
+			'headers' => CONEKTA_HEADERS,
+		)
+	);
+	wp_send_json( json_decode( $response['body'] ) );
+}
+
+add_action( 'wp_ajax_ckpg_get_conekta_data', 'ckpg_get_conekta_data' );
