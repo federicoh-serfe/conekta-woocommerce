@@ -170,7 +170,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 	 */
 	public function ckpg_conekta_submenu_page() {
 		include_once 'templates/plans.php';
-		wp_register_script( 'conekta_subscriptions', 'http://localhost:8040/script', array( 'jquery' ), '1.0', true ); // check import convention.
+		wp_register_script( 'conekta_subscriptions', getenv('SUBSCRIPTIONS_SCRIPT'), array( 'jquery' ), '1.0', true ); // check import convention.
 		wp_enqueue_script( 'conekta_subscriptions' );
 		wp_localize_script(
 			'conekta_subscriptions',
