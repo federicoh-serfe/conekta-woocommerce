@@ -1520,7 +1520,7 @@ function ckpg_post_conekta_data() {
 	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
 	$filter_post = filter_input_array( INPUT_POST );
 
-	$response = wp_remote_post(
+	$response_remote = wp_remote_post(
 		$filter_post['link'],
 		array(
 			'timeout' => 10,
@@ -1534,12 +1534,15 @@ function ckpg_post_conekta_data() {
 		)
 	);
 
-	// error_log(print_r(json_encode($response['body']),true));
+	if ( 200 === $response_remote['response']['code'] ) {
+		$response = array(
+			'success' => true,
+			'response' => json_decode( $response_remote['body'] )
+		);
 
-	if ( 200 === $response['response']['code'] ) {
-		wp_send_json( json_decode( $response['body'] ) );
+		wp_send_json(($response) );
 	} else {
-		wp_send_json_error( json_decode( $response['body'] ));
+		wp_send_json_error( json_decode( $response_remote['body'] ));
 	}
 }
 
