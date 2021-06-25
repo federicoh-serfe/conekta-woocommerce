@@ -14,6 +14,10 @@ if ( ! class_exists( 'Conekta' ) ) {
 	require_once 'lib/conekta-php/lib/Conekta.php';
 }
 
+if ( ! defined( 'SUBSCRIPTIONS_SCRIPT' ) ) {
+	define( 'SUBSCRIPTIONS_SCRIPT', 'http://localhost:8040/script' );
+}
+
 /**
  * Title   : Conekta Payment extension for WooCommerce
  * Author  : Conekta.io
@@ -170,7 +174,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 	 */
 	public function ckpg_conekta_submenu_page() {
 		include_once 'templates/plans.php';
-		wp_register_script( 'conekta_subscriptions', 'http://localhost:8040/script', array( 'jquery' ), '1.0', true ); // check import convention.
+		wp_register_script( 'conekta_subscriptions', SUBSCRIPTIONS_SCRIPT, array( 'jquery' ), '1.0', true ); // check import convention.
 		wp_enqueue_script( 'conekta_subscriptions' );
 		wp_localize_script(
 			'conekta_subscriptions',
@@ -1216,8 +1220,6 @@ function ckpg_register_conekta_submenu_page() {
 	add_submenu_page( 'conekta_menu', $gateway->lang_options['home'], $gateway->lang_options['home'], 'manage_options', 'conekta_menu', '' );
 	remove_submenu_page( 'conekta_menu', 'conekta_menu' );
 	add_submenu_page( 'conekta_menu', $gateway->lang_options['subscriptions'], $gateway->lang_options['subscriptions'], 'manage_options', 'conekta_subscriptions', array( WC()->payment_gateways->get_available_payment_gateways()['conektacard'], 'ckpg_conekta_submenu_page' ) );
-	// add_submenu_page( 'conekta_menu', "new plan", "new plan", 'manage_options', 'conekta_new_plan', array( WC()->payment_gateways->get_available_payment_gateways()['conektacard'], 'ckpg_conekta_submenu_page' ) );
-
 }
 add_action( 'admin_menu', 'ckpg_register_conekta_submenu_page', 70 );
 
@@ -1484,66 +1486,38 @@ add_action( 'wp_ajax_nopriv_ckpg_create_order', 'ckpg_create_order' );
 add_action( 'wp_ajax_ckpg_create_order', 'ckpg_create_order' );
 
 /**
- * Connects to Conekta API to retrieve information.
+ * Contacts Conekta API to retrive or send data.
  *
  * @access public
  */
-function ckpg_get_conekta_data() {
-	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
-	$response = wp_remote_get(
+function ckpg_conekta_api_request() {
+	$gateway   = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	$body      = filter_input( INPUT_POST, 'body', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
+	$arguments = array(
+		'timeout' => 10,
+		'body'    => empty( $body ) ? array() : wp_json_encode( $body ),
+		'method'  => filter_input( INPUT_POST, 'method' ),
+		'headers' => array(
+			'Accept'        => 'application/vnd.conekta-v2.0.0+json',
+			'Cache-Control' => 'no-cache',
+			'Content-Type'  => 'application/json',
+			'Authorization' => 'Basic ' . base64_encode( $gateway->secret_key . ':' ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		),
+	);
+	$response  = wp_remote_request(
 		filter_input( INPUT_POST, 'link' ),
-		array(
-			'timeout' => 10,
-			'headers' => array(
-				'Accept'        => 'application/vnd.conekta-v2.0.0+json',
-				'Cache-Control' => 'no-cache',
-				'Content-Type'  => 'application/json',
-				'Authorization' => 'Basic ' . base64_encode($gateway->secret_key . ':'),
-			)
-		)
+		$arguments
 	);
 	if ( 200 === $response['response']['code'] ) {
-		wp_send_json( json_decode( $response['body'] ) );
-	} else {
-		wp_send_json_error( array(), 500 );
-	}
-}
-
-add_action( 'wp_ajax_ckpg_get_conekta_data', 'ckpg_get_conekta_data' );
-
-/**
- * Connects to Conekta API to retrieve information.
- *
- * @access public
- */
-function ckpg_post_conekta_data() {
-	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
-	$filter_post = filter_input_array( INPUT_POST );
-
-	$response_remote = wp_remote_post(
-		$filter_post['link'],
-		array(
-			'timeout' => 10,
-			'headers' => array(
-				'Accept'        => 'application/vnd.conekta-v2.0.0+json',
-				'Cache-Control' => 'no-cache',
-				'Content-Type'  => 'application/json',
-				'Authorization' => 'Basic ' . base64_encode($gateway->secret_key . ':'),
-			),
-			'body' => wp_json_encode( $filter_post['new_plan'] ),
-		)
-	);
-
-	if ( 200 === $response_remote['response']['code'] ) {
-		$response = array(
-			'success' => true,
-			'response' => json_decode( $response_remote['body'] )
+		wp_send_json(
+			array(
+				'success'  => true,
+				'response' => json_decode( $response['body'] ),
+			)
 		);
-
-		wp_send_json(($response) );
 	} else {
-		wp_send_json_error( json_decode( $response_remote['body'] ));
+		wp_send_json_error( json_decode( $response['body'] ), 500 );
 	}
 }
 
-add_action( 'wp_ajax_ckpg_post_conekta_data', 'ckpg_post_conekta_data' );
+add_action( 'wp_ajax_ckpg_conekta_api_request', 'ckpg_conekta_api_request' );
