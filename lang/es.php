@@ -48,4 +48,13 @@
 		'enter_card_details'     => '+ INGRESAR LOS DATOS DE SU TARJETA DE CRÉDITO O DÉBITO',
 		'enter_customer_details' => 'Complete los datos de facturación antes de efectuar el pago.',
 		'order_too_little'       => 'No se pueden efectuar pagos por importes inferiores a ',
+		'subscriptions_tab'      => 'Suscripciones Conekta',
+		'subscriptions'          => 'Suscripciones',
+		'subscriptions_desc'     => 'Habilitar pago por suscripción para este producto',
+		'plan'                   => 'Plan',
+		'plans'                  => 'Planes',
+		'plans_desc'             => 'Elegir el plan de pago de este producto',
+		'error_mixed'            => 'El carrito mezcla suscripciones y productos.',
+		'error_multiple'         => 'El carrito tiene más de una suscripción.',
+		'no_plan'                => 'Sin Plan',
 	);

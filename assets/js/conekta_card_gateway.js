@@ -1,30 +1,33 @@
 jQuery(document).ready(function ($) {
 
     const spei_check = () => {
-        let spei_enabled = document.getElementById('woocommerce_conektacard_enable_spei').checked
+        let spei = document.getElementById('woocommerce_conektacard_enable_spei')
+        let spei_enabled = spei ? spei.checked : null
         if($('#woocommerce_conektacard_enable_cash,#woocommerce_conektacard_enable_card').is(':checked') || spei_enabled){
             $('#woocommerce_conektacard_account_owner').prop('readonly', !spei_enabled);
             $('#woocommerce_conektacard_spei_instructions').prop('readonly', !spei_enabled);
             $('#woocommerce_conektacard_spei_description').prop('readonly', !spei_enabled);
-        }else{
-            document.getElementById('woocommerce_conektacard_enable_spei').checked = true
+        }else if(spei){
+            spei.checked = true
         }
     }
     
     const oxxo_check = () =>{
-        let oxxo_enabled = document.getElementById('woocommerce_conektacard_enable_cash').checked
+        let oxxo = document.getElementById('woocommerce_conektacard_enable_cash')
+        let oxxo_enabled = oxxo ? oxxo.checked : null
         if($('#woocommerce_conektacard_enable_spei,#woocommerce_conektacard_enable_card').is(':checked') || oxxo_enabled){
             $('#woocommerce_conektacard_expiration').prop('readonly', !oxxo_enabled);
             $('#woocommerce_conektacard_expiration_time').prop('disabled', !oxxo_enabled);
             $('#woocommerce_conektacard_oxxo_instructions').prop('readonly', !oxxo_enabled);
             $('#woocommerce_conektacard_oxxo_description').prop('readonly', !oxxo_enabled);
-        }else{
-            document.getElementById('woocommerce_conektacard_enable_cash').checked = true
+        }else if(oxxo){
+            oxxo.checked = true
         }
     }
     
     const card_check = () => {
-        let card_enabled = document.getElementById('woocommerce_conektacard_enable_card').checked
+        let card = document.getElementById('woocommerce_conektacard_enable_card')
+        let card_enabled = card ? card.checked : null
         if($('#woocommerce_conektacard_enable_spei,#woocommerce_conektacard_enable_cash').is(':checked') || card_enabled){
             $('#woocommerce_conektacard_enable_save_card').prop('disabled', !card_enabled);
             $('#woocommerce_conektacard_meses').prop('disabled', !card_enabled);
@@ -34,8 +37,8 @@ jQuery(document).ready(function ($) {
             [3,6,9,12,18].forEach(months => {
                 $(`#woocommerce_conektacard_${months.toString()}_months_msi`).prop('disabled', !card_enabled);
             })
-        }else{
-            document.getElementById('woocommerce_conektacard_enable_card').checked = true
+        }else if(card){
+            card.checked = true
         }
     }
 

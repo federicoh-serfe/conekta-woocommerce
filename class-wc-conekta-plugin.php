@@ -315,4 +315,29 @@ class WC_Conekta_Plugin extends WC_Payment_Gateway {
 			); // db call ok; no-cache ok.
 		}
 	}
+
+	/**
+	 * Gets a post meta id by value.
+	 *
+	 * @access public
+	 * @param string $key to search in postmeta table.
+	 * @param string $value to search in postmeta table.
+	 * @return array
+	 */
+	public static function get_meta_by_value( $key, $value ) {
+		global $wpdb;
+		$results = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT post_id FROM wp_postmeta WHERE meta_key LIKE %s AND meta_value = %s',
+				$key,
+				$value
+			)
+		); // db call ok; no-cache ok.
+		return array_map(
+			function( $element ) {
+				return (int) $element->post_id;
+			},
+			$results
+		);
+	}
 }
