@@ -202,7 +202,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 
 		if ( 'order' === $conekta_order['object'] && array_key_exists( 'charges', $conekta_order ) ) {
 			$charge   = $conekta_order['charges']['data'][0];
-			$order_id = $conekta_order['metadata']['reference_id'];
+			$order_id = parent::get_meta_by_value( 'conekta-order-id', $conekta_order['id'] )[0];
 			$order    = wc_get_order( $order_id );
 			if ( 'spei' === $charge['payment_method']['type'] && false !== strpos( $event['type'], 'order.paid' ) ) {
 				$paid_at = gmdate( 'Y-m-d', $charge['paid_at'] );
