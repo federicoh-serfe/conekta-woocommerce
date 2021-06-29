@@ -539,8 +539,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'label'   => __( 'Hours', 'woothemes' ),
 				'default' => 'no',
 				'options' => array(
-					//'hours' => 'Hours',
-					'days'  => 'Days',
+					'days' => 'Days',
 				),
 			),
 			'expiration'             => array(
