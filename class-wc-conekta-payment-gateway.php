@@ -1492,26 +1492,31 @@ add_action( 'wp_ajax_ckpg_create_order', 'ckpg_create_order' );
  */
 function ckpg_conekta_api_request() {
 	$gateway   = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
-	$body      = filter_input(INPUT_POST, 'body', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY);
+	$body      = filter_input( INPUT_POST, 'body', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
 	$arguments = array(
 		'timeout' => 10,
-		'body'    => empty( $body ) ? array() : json_encode($body),
+		'body'    => empty( $body ) ? array() : wp_json_encode( $body ),
 		'method'  => filter_input( INPUT_POST, 'method' ),
 		'headers' => array(
 			'Accept'        => 'application/vnd.conekta-v2.0.0+json',
 			'Cache-Control' => 'no-cache',
 			'Content-Type'  => 'application/json',
-			'Authorization' => 'Basic ' . base64_encode($gateway->secret_key . ':'),
+			'Authorization' => 'Basic ' . base64_encode( $gateway->secret_key . ':' ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 		),
 	);
-	$response = wp_remote_request(
+	$response  = wp_remote_request(
 		filter_input( INPUT_POST, 'link' ),
 		$arguments
 	);
 	if ( 200 === $response['response']['code'] ) {
-		wp_send_json( json_decode( $response['body'] ) );
+		wp_send_json(
+			array(
+				'success'  => true,
+				'response' => json_decode( $response['body'] ),
+			)
+		);
 	} else {
-		wp_send_json_error( array(), 500 );
+		wp_send_json_error( json_decode( $response['body'] ), 500 );
 	}
 }
 
