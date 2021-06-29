@@ -539,14 +539,14 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'label'   => __( 'Hours', 'woothemes' ),
 				'default' => 'no',
 				'options' => array(
-					'hours' => 'Hours',
+					//'hours' => 'Hours',
 					'days'  => 'Days',
 				),
 			),
 			'expiration'             => array(
-				'type'    => 'text',
-				'title'   => __( 'Expiration time (in days or hours) for the reference', 'woothemes' ),
-				'default' => __( '1', 'woothemes' ),
+				'type'    => 'number',
+				'title'   => __( 'Expiration time for the reference', 'woothemes' ),
+				'default' => __( '3', 'woothemes' ),
 			),
 			'oxxo_description'       => array(
 				'title'       => 'OXXO - ' . __( 'Description', 'woocommerce' ),
