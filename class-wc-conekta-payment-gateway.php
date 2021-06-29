@@ -1312,11 +1312,10 @@ function ckpg_create_order() {
 				'phone' => filter_input( INPUT_POST, 'phone' ),
 			);
 			$customer      = \Conekta\Customer::create( $customer_data );
-			if( 0 !== $wc_user_id ) {
+			if ( 0 !== $wc_user_id ) {
 				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 			}
 		}
-		error_log("ended", WC_Conekta_Plugin::ckpg_get_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID ));
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
 
@@ -1471,10 +1470,10 @@ function ckpg_create_order() {
 					'name'  => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
 					'email' => filter_input( INPUT_POST, 'email' ),
 					'phone' => filter_input( INPUT_POST, 'phone' ),
-				)
+				),
 			);
-			$order = \Conekta\Order::find( $old_order->order_id );
-			$order->update($order_details);
+			$order         = \Conekta\Order::find( $old_order->order_id );
+			$order->update( $order_details );
 		}
 		$response = array(
 			'checkout_id' => $order->checkout['id'],
