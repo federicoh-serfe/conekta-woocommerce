@@ -533,21 +533,6 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'label'   => __( 'Enable OXXO payment method', 'woothemes' ),
 				'default' => 'yes',
 			),
-			'expiration_time'        => array(
-				'type'    => 'select',
-				'title'   => __( 'Expiration time type', 'woothemes' ),
-				'label'   => __( 'Hours', 'woothemes' ),
-				'default' => 'no',
-				'options' => array(
-					'hours' => 'Hours',
-					'days'  => 'Days',
-				),
-			),
-			'expiration'             => array(
-				'type'    => 'text',
-				'title'   => __( 'Expiration time (in days or hours) for the reference', 'woothemes' ),
-				'default' => __( '1', 'woothemes' ),
-			),
 			'oxxo_description'       => array(
 				'title'       => 'OXXO - ' . __( 'Description', 'woocommerce' ),
 				'type'        => 'textarea',
@@ -587,6 +572,20 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'description' => __( 'Instructions that will be added to the thank you page and emails.', 'woocommerce' ),
 				'default'     => __( 'Por favor realiza el pago en el portal de tu banco utilizando los datos que te enviamos por correo.', 'woocommerce' ),
 				'desc_tip'    => true,
+			),
+			'expiration_time'        => array(
+				'type'    => 'select',
+				'title'   => __( 'Expiration Format', 'woothemes' ),
+				'label'   => __( 'Days', 'woothemes' ),
+				'default' => 'no',
+				'options' => array(
+					'days' => 'Days',
+				),
+			),
+			'expiration'             => array(
+				'type'    => 'number',
+				'title'   => __( 'Expiration (# days)', 'woothemes' ),
+				'default' => __( '3', 'woothemes' ),
 			),
 			'order_metadata'         => array(
 				'title'       => __( 'Additional Order Metadata', 'woocommerce' ),

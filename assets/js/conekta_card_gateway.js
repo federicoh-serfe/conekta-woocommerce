@@ -16,8 +16,6 @@ jQuery(document).ready(function ($) {
         let oxxo = document.getElementById('woocommerce_conektacard_enable_cash')
         let oxxo_enabled = oxxo ? oxxo.checked : null
         if($('#woocommerce_conektacard_enable_spei,#woocommerce_conektacard_enable_card').is(':checked') || oxxo_enabled){
-            $('#woocommerce_conektacard_expiration').prop('readonly', !oxxo_enabled);
-            $('#woocommerce_conektacard_expiration_time').prop('disabled', !oxxo_enabled);
             $('#woocommerce_conektacard_oxxo_instructions').prop('readonly', !oxxo_enabled);
             $('#woocommerce_conektacard_oxxo_description').prop('readonly', !oxxo_enabled);
         }else if(oxxo){
@@ -77,12 +75,13 @@ jQuery(document).ready(function ($) {
     $('#woocommerce_conektacard_expiration').change(function(){
         var currentValue = parseInt($('#woocommerce_conektacard_expiration').val())
         if( currentValue<1 || !$.isNumeric(currentValue)){
-            $('#woocommerce_conektacard_expiration').val(1)
+            $('#woocommerce_conektacard_expiration').val(3)
         }else{
             if(type=="hours"){
                 if(currentValue > 23) $('#woocommerce_conektacard_expiration').val(23)
             }else{
                 if(currentValue > 31) $('#woocommerce_conektacard_expiration').val(31)
+                else if (currentValue < 3) $('#woocommerce_conektacard_expiration').val(3)
             }
         }
     });
