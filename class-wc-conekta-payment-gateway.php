@@ -456,21 +456,6 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'label'   => __( 'Enable OXXO payment method', 'woothemes' ),
 				'default' => 'yes',
 			),
-			'expiration_time'        => array(
-				'type'    => 'select',
-				'title'   => __( 'Expiration time type', 'woothemes' ),
-				'label'   => __( 'Hours', 'woothemes' ),
-				'default' => 'no',
-				'options' => array(
-					'hours' => 'Hours',
-					'days'  => 'Days',
-				),
-			),
-			'expiration'             => array(
-				'type'    => 'text',
-				'title'   => __( 'Expiration time (in days or hours) for the reference', 'woothemes' ),
-				'default' => __( '1', 'woothemes' ),
-			),
 			'oxxo_description'       => array(
 				'title'       => 'OXXO - ' . __( 'Description', 'woocommerce' ),
 				'type'        => 'textarea',
@@ -510,6 +495,20 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'description' => __( 'Instructions that will be added to the thank you page and emails.', 'woocommerce' ),
 				'default'     => __( 'Por favor realiza el pago en el portal de tu banco utilizando los datos que te enviamos por correo.', 'woocommerce' ),
 				'desc_tip'    => true,
+			),
+			'expiration_time'        => array(
+				'type'    => 'select',
+				'title'   => __( 'Expiration Format', 'woothemes' ),
+				'label'   => __( 'Days', 'woothemes' ),
+				'default' => 'no',
+				'options' => array(
+					'days' => 'Days',
+				),
+			),
+			'expiration'             => array(
+				'type'    => 'number',
+				'title'   => __( 'Expiration (# days)', 'woothemes' ),
+				'default' => __( '3', 'woothemes' ),
 			),
 			'order_metadata'         => array(
 				'title'       => __( 'Additional Order Metadata', 'woocommerce' ),
@@ -1020,21 +1019,25 @@ function ckpg_create_order() {
 		\Conekta\Conekta::setPluginVersion( $gateway->version );
 		\Conekta\Conekta::setLocale( 'es' );
 
+		$wc_user_id  = get_current_user_id();
+		$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
+		if ( 0 !== $wc_user_id && ! empty( $customer_id ) ) {
+			$customer = \Conekta\Customer::find( $customer_id );
+		} else {
+			$customer_data = array(
+				'name'  => ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ),
+				'email' => filter_input( INPUT_POST, 'email' ),
+				'phone' => filter_input( INPUT_POST, 'phone' ),
+			);
+			$customer      = \Conekta\Customer::create( $customer_data );
+			if ( 0 !== $wc_user_id ) {
+				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
+			}
+		}
+
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
 
-			$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
-			if ( ! empty( $customer_id ) ) {
-				$customer = \Conekta\Customer::find( $customer_id );
-			} else {
-				$customer_data = array(
-					'name'  => ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ),
-					'email' => filter_input( INPUT_POST, 'email' ),
-					'phone' => filter_input( INPUT_POST, 'phone' ),
-				);
-				$customer      = \Conekta\Customer::create( $customer_data );
-				WC_Conekta_Plugin::ckpg_update_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
-			}
 			$checkout    = WC()->checkout();
 			$posted_data = $checkout->get_posted_data();
 			$order_id    = $checkout->create_order( $posted_data );
@@ -1134,7 +1137,25 @@ function ckpg_create_order() {
 			$order         = \Conekta\Order::create( $order_details );
 			WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id );
 		} else {
-			$order = \Conekta\Order::find( $old_order->order_id );
+			$order_details = array(
+				'shipping_contact' => array(
+					'phone'    => filter_input( INPUT_POST, 'phone' ),
+					'receiver' => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
+					'address'  => array(
+						'street1'     => filter_input( INPUT_POST, 'address_1' ),
+						'street2'     => filter_input( INPUT_POST, 'address_2' ),
+						'country'     => filter_input( INPUT_POST, 'country' ),
+						'postal_code' => filter_input( INPUT_POST, 'postcode' ),
+					),
+				),
+				'customer_info'    => array(
+					'name'  => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
+					'email' => filter_input( INPUT_POST, 'email' ),
+					'phone' => filter_input( INPUT_POST, 'phone' ),
+				),
+			);
+			$order         = \Conekta\Order::find( $old_order->order_id );
+			$order->update( $order_details );
 		}
 		$response = array(
 			'checkout_id' => $order->checkout['id'],
