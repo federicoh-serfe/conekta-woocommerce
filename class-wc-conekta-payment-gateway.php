@@ -1262,6 +1262,26 @@ function ckpg_checkout_delete_card() {
 }
 add_action( 'wp_ajax_ckpg_checkout_delete_card', 'ckpg_checkout_delete_card' );
 
+function ckpg_coupon_remove( $code ) {
+	$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
+	$wc_order  = new WC_Order( $old_order->order_number );
+	error_log(print_r($wc_order->get_coupon_codes(),true));
+	$wc_order->remove_coupon( $code );
+	error_log(print_r($wc_order->get_coupon_codes(),true));
+	ckpg_reload_checkout();
+}
+
+function ckpg_reload_checkout() {
+	?>
+	<script>
+		if(validate_checkout)
+			validate_checkout()
+	</script>
+	<?php
+}
+
+add_action( 'woocommerce_applied_coupon',  'ckpg_reload_checkout' ); 
+add_action( 'woocommerce_removed_coupon',  'ckpg_coupon_remove' ); 
 /**
  * Sets the billing data in a WooCommerce order.
  *
@@ -1454,7 +1474,11 @@ function ckpg_create_order() {
 			$order         = \Conekta\Order::create( $order_details );
 			WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id );
 		} else {
-			$order_details = array(
+			$wc_order       = wc_get_order( $old_order->order_number );
+			$data           = ckpg_get_request_data( $wc_order );
+			$discount_lines = ckpg_build_discount_lines( $data );
+			$order_details  = array(
+				'discount_lines'   => $discount_lines,
 				'shipping_contact' => array(
 					'phone'    => filter_input( INPUT_POST, 'phone' ),
 					'receiver' => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
@@ -1471,9 +1495,10 @@ function ckpg_create_order() {
 					'phone' => filter_input( INPUT_POST, 'phone' ),
 				),
 			);
-			$order         = \Conekta\Order::find( $old_order->order_id );
+			$order          = \Conekta\Order::find( $old_order->order_id );
 			$order->update( $order_details );
 		}
+		WC()->cart->calculate_totals();
 		$response = array(
 			'checkout_id' => $order->checkout['id'],
 			'key'         => $gateway->secret_key,
