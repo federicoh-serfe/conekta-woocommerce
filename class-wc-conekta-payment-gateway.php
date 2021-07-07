@@ -1272,7 +1272,7 @@ function ckpg_coupon_remove( $code ) {
 function ckpg_reload_checkout() {
 	?>
 	<script>
-		if(validate_checkout)
+		if(typeof validate_checkout !== 'undefined')
 			validate_checkout()
 	</script>
 	<?php
