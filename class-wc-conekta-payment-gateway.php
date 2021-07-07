@@ -1262,6 +1262,12 @@ function ckpg_checkout_delete_card() {
 }
 add_action( 'wp_ajax_ckpg_checkout_delete_card', 'ckpg_checkout_delete_card' );
 
+/**
+ * Removes a coupon from a woocommerce order.
+ *
+ * @access public
+ * @param string $code of the deleted coupon.
+ */
 function ckpg_coupon_remove( $code ) {
 	$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 	$wc_order  = new WC_Order( $old_order->order_number );
@@ -1269,6 +1275,11 @@ function ckpg_coupon_remove( $code ) {
 	ckpg_reload_checkout();
 }
 
+/**
+ * Reloads a checkout with a new coupon.
+ *
+ * @access public
+ */
 function ckpg_reload_checkout() {
 	?>
 	<script>
