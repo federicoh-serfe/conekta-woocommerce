@@ -16,8 +16,6 @@ jQuery(document).ready(function ($) {
         let oxxo = document.getElementById('woocommerce_conektacard_enable_cash')
         let oxxo_enabled = oxxo ? oxxo.checked : null
         if($('#woocommerce_conektacard_enable_spei,#woocommerce_conektacard_enable_card').is(':checked') || oxxo_enabled){
-            $('#woocommerce_conektacard_expiration').prop('readonly', !oxxo_enabled);
-            $('#woocommerce_conektacard_expiration_time').prop('disabled', !oxxo_enabled);
             $('#woocommerce_conektacard_oxxo_instructions').prop('readonly', !oxxo_enabled);
             $('#woocommerce_conektacard_oxxo_description').prop('readonly', !oxxo_enabled);
         }else if(oxxo){
