@@ -1278,8 +1278,8 @@ function ckpg_reload_checkout() {
 	<?php
 }
 
-add_action( 'woocommerce_applied_coupon',  'ckpg_reload_checkout' ); 
-add_action( 'woocommerce_removed_coupon',  'ckpg_coupon_remove' ); 
+add_action( 'woocommerce_applied_coupon', 'ckpg_reload_checkout' );
+add_action( 'woocommerce_removed_coupon', 'ckpg_coupon_remove' );
 /**
  * Sets the billing data in a WooCommerce order.
  *
@@ -1473,7 +1473,7 @@ function ckpg_create_order() {
 			$order         = \Conekta\Order::create( $order_details );
 			WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id );
 		} else {
-			$order_details  = array(
+			$order_details = array(
 				'shipping_contact' => array(
 					'phone'    => filter_input( INPUT_POST, 'phone' ),
 					'receiver' => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
@@ -1490,7 +1490,7 @@ function ckpg_create_order() {
 					'phone' => filter_input( INPUT_POST, 'phone' ),
 				),
 			);
-			$order          = \Conekta\Order::find( $old_order->order_id );
+			$order         = \Conekta\Order::find( $old_order->order_id );
 			$order->update( $order_details );
 		}
 		$response = array(
