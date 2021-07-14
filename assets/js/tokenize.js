@@ -262,7 +262,18 @@ const validate_checkout = function () {
                             buttonType: "sharp", // 'basic' | 'rounded' | 'sharp'
                         },
                         },
-                        onFinalizePayment: function (event) {
+                        onFinalizePayment: function (order) {
+                            let method = (order && order.charge && order.charge.payment_method) ? order.charge.payment_method.type : null;
+                            let charge_id = (order && order.charge) ? order.charge.id : null;
+                            let form = jQuery('form[name=checkout]');
+			                      form.append(jQuery('<input type="hidden" name="conekta_payment_method" id="conekta_payment_method" />').val(method));
+                            form.append(jQuery('<input type="hidden" name="charge_id" id="charge_id" />').val(charge_id));
+                            switch(method){
+                              case "oxxo": 
+                                form.append(jQuery('<input type="hidden" name="reference" id="reference" />').val(order.reference)); break;
+                              case "spei": 
+                                form.append(jQuery('<input type="hidden" name="clabe" id="clabe" />').val(order.reference)); break;
+                            }
                             document.getElementById("place_order").click();
                         },
                     });
