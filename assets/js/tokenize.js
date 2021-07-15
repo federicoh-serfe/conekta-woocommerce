@@ -291,7 +291,9 @@ const validate_checkout = function () {
     }
 };
 let billing_form_card = document.getElementById("customer_details");
-Array.from(billing_form_card.querySelectorAll("input,select")).forEach((e) => {
-  e.addEventListener("change", validate_checkout);
-});
-window.onload = () => {validate_checkout()}
+if(billing_form_card){
+  Array.from(billing_form_card.querySelectorAll("input,select")).forEach((e) => {
+    e.addEventListener("change", validate_checkout);
+  });
+}
+window.onload = () => {if(billing_form_card){validate_checkout()}}
