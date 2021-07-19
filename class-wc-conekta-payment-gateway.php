@@ -1263,6 +1263,35 @@ function ckpg_checkout_delete_card() {
 add_action( 'wp_ajax_ckpg_checkout_delete_card', 'ckpg_checkout_delete_card' );
 
 /**
+ * Removes a coupon from a woocommerce order.
+ *
+ * @access public
+ * @param string $code of the deleted coupon.
+ */
+function ckpg_coupon_remove( $code ) {
+	$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
+	$wc_order  = new WC_Order( $old_order->order_number );
+	$wc_order->remove_coupon( $code );
+	ckpg_reload_checkout();
+}
+
+/**
+ * Reloads a checkout with a new coupon.
+ *
+ * @access public
+ */
+function ckpg_reload_checkout() {
+	?>
+	<script>
+		if(typeof validate_checkout !== 'undefined')
+			validate_checkout()
+	</script>
+	<?php
+}
+
+add_action( 'woocommerce_applied_coupon', 'ckpg_reload_checkout' );
+add_action( 'woocommerce_removed_coupon', 'ckpg_coupon_remove' );
+/**
  * Sets the billing data in a WooCommerce order.
  *
  * @access public
@@ -1300,6 +1329,22 @@ function ckpg_create_order() {
 		\Conekta\Conekta::setPluginVersion( $gateway->version );
 		\Conekta\Conekta::setLocale( 'es' );
 
+		$wc_user_id  = get_current_user_id();
+		$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
+		if ( 0 !== $wc_user_id && ! empty( $customer_id ) ) {
+			$customer = \Conekta\Customer::find( $customer_id );
+		} else {
+			$customer_data = array(
+				'name'  => ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ),
+				'email' => filter_input( INPUT_POST, 'email' ),
+				'phone' => filter_input( INPUT_POST, 'phone' ),
+			);
+			$customer      = \Conekta\Customer::create( $customer_data );
+			if ( 0 !== $wc_user_id ) {
+				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
+			}
+		}
+		WC()->cart->calculate_totals();
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
 
@@ -1331,18 +1376,6 @@ function ckpg_create_order() {
 				}
 			}
 
-			$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
-			if ( ! empty( $customer_id ) ) {
-				$customer = \Conekta\Customer::find( $customer_id );
-			} else {
-				$customer_data = array(
-					'name'  => ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ),
-					'email' => filter_input( INPUT_POST, 'email' ),
-					'phone' => filter_input( INPUT_POST, 'phone' ),
-				);
-				$customer      = \Conekta\Customer::create( $customer_data );
-				WC_Conekta_Plugin::ckpg_update_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
-			}
 			$checkout    = WC()->checkout();
 			$posted_data = $checkout->get_posted_data();
 			$order_id    = $checkout->create_order( $posted_data );
@@ -1451,7 +1484,25 @@ function ckpg_create_order() {
 			$order         = \Conekta\Order::create( $order_details );
 			WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id );
 		} else {
-			$order = \Conekta\Order::find( $old_order->order_id );
+			$order_details = array(
+				'shipping_contact' => array(
+					'phone'    => filter_input( INPUT_POST, 'phone' ),
+					'receiver' => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
+					'address'  => array(
+						'street1'     => filter_input( INPUT_POST, 'address_1' ),
+						'street2'     => filter_input( INPUT_POST, 'address_2' ),
+						'country'     => filter_input( INPUT_POST, 'country' ),
+						'postal_code' => filter_input( INPUT_POST, 'postcode' ),
+					),
+				),
+				'customer_info'    => array(
+					'name'  => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
+					'email' => filter_input( INPUT_POST, 'email' ),
+					'phone' => filter_input( INPUT_POST, 'phone' ),
+				),
+			);
+			$order         = \Conekta\Order::find( $old_order->order_id );
+			$order->update( $order_details );
 		}
 		$response = array(
 			'checkout_id' => $order->checkout['id'],
