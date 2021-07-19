@@ -1032,10 +1032,6 @@ function ckpg_create_order() {
 				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 			}
 		}
-<<<<<<< HEAD
-=======
-
->>>>>>> eda2d4ead52f970e7fbb4e8f445e6b540323a898
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
 
