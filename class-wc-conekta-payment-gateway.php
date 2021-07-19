@@ -1473,7 +1473,7 @@ function ckpg_create_order() {
 		}
 		$response = array(
 			'checkout_id' => $order->checkout['id'],
-			'key'         => $gateway->secret_key,
+			'key'         => $gateway->publishable_key,
 			'price'       => WC()->cart->total,
 			'spei_text'   => $gateway->settings['spei_description'],
 			'cash_text'   => $gateway->settings['oxxo_description'],
