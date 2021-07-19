@@ -71,12 +71,11 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 	public function __construct() {
 		global $woocommerce;
 		$this->id           = 'conektacard';
-		$this->method_title = __( 'Conekta Payment', 'conektacard' );
+		$this->method_title = __( 'Conekta', 'conektacard' );
 		$this->has_fields   = true;
 		$this->ckpg_init_form_fields();
 		$this->init_settings();
 
-		$this->title                = $this->settings['title'];
 		$this->description          = '';
 		$this->icon                 = $this->settings['alternate_imageurl'] ?
 			$this->settings['alternate_imageurl'] : WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) )
@@ -91,6 +90,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		$this->publishable_key      = $this->use_sandbox_api ? $this->test_publishable_key : $this->live_publishable_key;
 		$this->secret_key           = $this->use_sandbox_api ? $this->test_api_key : $this->live_api_key;
 		$this->lang_options         = parent::ckpg_set_locale_options()->ckpg_get_lang_options();
+		$this->title                = $this->lang_options['conekta_title'];
 		$this->enable_save_card     = $this->settings['enable_save_card'];
 		$this->account_owner        = $this->settings['account_owner'];
 
@@ -328,7 +328,7 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 			'enabled'                => array(
 				'type'    => 'checkbox',
 				'title'   => __( 'Enable/Disable', 'woothemes' ),
-				'label'   => __( 'Enable Credit Card Payment', 'woothemes' ),
+				'label'   => __( 'Enable Conekta Payment', 'woothemes' ),
 				'default' => 'yes',
 			),
 			'debug'                  => array(
@@ -337,11 +337,11 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'label'   => __( 'Turn on testing', 'woothemes' ),
 				'default' => 'no',
 			),
-			'title'                  => array(
+			'card_title'             => array(
 				'type'        => 'text',
 				'title'       => 'Card - ' . __( 'Title', 'woothemes' ),
 				'description' => __( 'This controls the title which the user sees during checkout.', 'woothemes' ),
-				'default'     => __( 'Pago con Conekta', 'woothemes' ),
+				'default'     => __( 'Pago con Tarjeta de crédito o débito', 'woothemes' ),
 			),
 			'oxxo_title'             => array(
 				'type'        => 'text',
@@ -456,21 +456,6 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'label'   => __( 'Enable OXXO payment method', 'woothemes' ),
 				'default' => 'yes',
 			),
-			'expiration_time'        => array(
-				'type'    => 'select',
-				'title'   => __( 'Expiration time type', 'woothemes' ),
-				'label'   => __( 'Hours', 'woothemes' ),
-				'default' => 'no',
-				'options' => array(
-					'hours' => 'Hours',
-					'days'  => 'Days',
-				),
-			),
-			'expiration'             => array(
-				'type'    => 'text',
-				'title'   => __( 'Expiration time (in days or hours) for the reference', 'woothemes' ),
-				'default' => __( '1', 'woothemes' ),
-			),
 			'oxxo_description'       => array(
 				'title'       => 'OXXO - ' . __( 'Description', 'woocommerce' ),
 				'type'        => 'textarea',
@@ -510,6 +495,20 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'description' => __( 'Instructions that will be added to the thank you page and emails.', 'woocommerce' ),
 				'default'     => __( 'Por favor realiza el pago en el portal de tu banco utilizando los datos que te enviamos por correo.', 'woocommerce' ),
 				'desc_tip'    => true,
+			),
+			'expiration_time'        => array(
+				'type'    => 'select',
+				'title'   => __( 'Expiration Format', 'woothemes' ),
+				'label'   => __( 'Days', 'woothemes' ),
+				'default' => 'no',
+				'options' => array(
+					'days' => 'Days',
+				),
+			),
+			'expiration'             => array(
+				'type'    => 'number',
+				'title'   => __( 'Expiration (# days)', 'woothemes' ),
+				'default' => __( '3', 'woothemes' ),
 			),
 			'order_metadata'         => array(
 				'title'       => __( 'Additional Order Metadata', 'woocommerce' ),
@@ -772,8 +771,8 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		if ( $this->ckpg_set_as_paid( $current_order_data ) ) {
 			$this->transaction_id = filter_input( INPUT_POST, 'charge_id' );
 			if ( 'credit' === $payment_type || 'debit' === $payment_type ) {
+				$this->order->set_payment_method_title( $this->settings['card_title'] );
 				$this->ckpg_completeOrder();
-				$this->order->set_payment_method_title( 'card' );
 				update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id );
 			} else {
 				if ( 'oxxo' === $payment_type ) {
@@ -1033,20 +1032,13 @@ function ckpg_create_order() {
 				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 			}
 		}
+<<<<<<< HEAD
+=======
+
+>>>>>>> eda2d4ead52f970e7fbb4e8f445e6b540323a898
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
 
-			$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( get_current_user_id(), WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
-			if ( ! empty( $customer_id ) ) {
-				$customer = \Conekta\Customer::find( $customer_id );
-			} else {
-				$customer_data = array(
-					'name'  => ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ),
-					'email' => filter_input( INPUT_POST, 'email' ),
-					'phone' => filter_input( INPUT_POST, 'phone' ),
-				);
-				$customer      = \Conekta\Customer::create( $customer_data );
-			}
 			$checkout    = WC()->checkout();
 			$posted_data = $checkout->get_posted_data();
 			$order_id    = $checkout->create_order( $posted_data );
