@@ -14,6 +14,10 @@ if ( ! class_exists( 'Conekta' ) ) {
 	require_once 'lib/conekta-php/lib/Conekta.php';
 }
 
+if ( ! defined( 'SUBSCRIPTIONS_SCRIPT' ) ) {
+	define( 'SUBSCRIPTIONS_SCRIPT', 'http://localhost:8040/script' );
+}
+
 /**
  * Title   : Conekta Payment extension for WooCommerce
  * Author  : Conekta.io
@@ -164,6 +168,25 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 	}
 
 	/**
+	 * Initializes the Conekta Plans submenu page.
+	 *
+	 * @access public
+	 */
+	public function ckpg_conekta_submenu_page() {
+		include_once 'templates/plans.php';
+		wp_register_script( 'conekta_subscriptions', SUBSCRIPTIONS_SCRIPT, array( 'jquery' ), '1.0', true ); // check import convention.
+		wp_enqueue_script( 'conekta_subscriptions' );
+		wp_localize_script(
+			'conekta_subscriptions',
+			'conekta_subscriptions',
+			array(
+				'ajaxurl' => admin_url( 'admin-ajax.php' ),
+				'locale'  => get_locale(),
+			)
+		);
+	}
+
+	/**
 	 * Updates the status of the order.
 	 *
 	 * @access public
@@ -179,9 +202,9 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 
 		if ( 'order' === $conekta_order['object'] && array_key_exists( 'charges', $conekta_order ) ) {
 			$charge   = $conekta_order['charges']['data'][0];
-			$order_id = $conekta_order['metadata']['reference_id'];
+			$order_id = parent::get_meta_by_value( 'conekta-order-id', $conekta_order['id'] )[0];
 			$order    = wc_get_order( $order_id );
-			if ( 'spei' === $charge['payment_method']['type'] && 'order.paid' !== strpos( $event['type'], false ) ) {
+			if ( 'spei' === $charge['payment_method']['type'] && false !== strpos( $event['type'], 'order.paid' ) ) {
 				$paid_at = gmdate( 'Y-m-d', $charge['paid_at'] );
 				update_post_meta( $order->get_id(), 'conekta-paid-at', $paid_at );
 				$order->payment_complete();
@@ -214,6 +237,60 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 					$order->update_status( 'cancelled', __( 'Order has been cancelled', 'woocommerce' ) );
 				}
 			}
+		} elseif ( 'plan' === $conekta_order['object'] && false !== strpos( $event['type'], 'plan.deleted' ) ) {
+			$plan_id = $conekta_order['id'];
+			if ( ! empty( $plan_id ) ) {
+				$this->ckpg_conekta_delete_plan_from_products( $plan_id );
+			}
+		}
+	}
+
+	/**
+	 * Delete a plan from all of its products.
+	 *
+	 * @access public
+	 * @param int $plan_id  ID of the deleted plan.
+	 */
+	public function ckpg_conekta_delete_plan_from_products( $plan_id ) {
+		$products = parent::get_meta_by_value( '_subscription_plans%', $plan_id );
+		foreach ( $products as $product_id ) {
+			$product = wc_get_product( $product_id );
+			$type    = $product->get_type();
+			if ( in_array( $type, array( 'simple', 'external' ), true ) ) {
+				update_post_meta( $product_id, '_is_subscription', esc_attr( 'no' ) );
+				$meta_key = '_subscription_plans';
+				delete_post_meta( $product_id, $meta_key );
+			} else {
+				update_post_meta( $product_id, '_subscription_plans_' . $product_id, 'none' );
+				$parent = $product->get_parent_id();
+				if ( ! empty( $parent ) ) {
+					$this->ckpg_conekta_deactivate_subscriptions( $parent );
+				}
+			}
+		}
+	}
+
+	/**
+	 * Deactivates subscriptions if no variants have plans.
+	 *
+	 * @access public
+	 * @param int $product_id  ID of the product whose variants are to be checked.
+	 */
+	public function ckpg_conekta_deactivate_subscriptions( $product_id ) {
+		$product   = wc_get_product( $product_id );
+		$no_more   = true;
+		$variants  = $product->get_children();
+		$var_count = count( $variants );
+		$i         = 0;
+		while ( $no_more && $i < $var_count ) {
+			$variant_id = $variants[ $i ];
+			if ( 'none' !== get_post_meta( (int) $variant_id, '_subscription_plans_' . $variant_id, true ) ) {
+				$no_more = false;
+			}
+			$i++;
+		}
+		if ( $no_more ) {
+			update_post_meta( $product_id, '_is_subscription', esc_attr( 'no' ) );
 		}
 	}
 
@@ -720,7 +797,8 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		}
 		$this->order->add_order_note(
 			sprintf(
-				'%s " . $payment_method . " Payment Failed : "%s"',
+				'%s %s Payment Failed : "%s"',
+				$payment_method,
 				$this->gateway_name,
 				$this->transaction_error_message
 			)
@@ -766,31 +844,29 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		wp_delete_post( $order_id, true );
 		$current_order_data = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		$this->order        = wc_get_order( $current_order_data->order_number );
-		$current_order      = \Conekta\Order::find( $current_order_data->order_id );
-		$payment_type       = $current_order->charges[0]->payment_method->object;
+		$payment_type       = filter_input( INPUT_POST, 'conekta_payment_method' );
 		$this->order->set_payment_method( WC()->payment_gateways()->get_available_payment_gateways()[ $this->id ] );
 		if ( $this->ckpg_set_as_paid( $current_order_data ) ) {
-			$charge               = $current_order->charges[0];
-			$this->transaction_id = $charge->id;
-			if ( 'card_payment' === $payment_type ) {
+			$this->transaction_id = filter_input( INPUT_POST, 'charge_id' );
+			if ( 'credit' === $payment_type || 'debit' === $payment_type ) {
 				$this->order->set_payment_method_title( $this->settings['card_title'] );
 				$this->ckpg_completeOrder();
 				update_post_meta( $this->order->get_id(), 'transaction_id', $this->transaction_id );
 			} else {
-				if ( 'cash_payment' === $payment_type ) {
+				if ( 'oxxo' === $payment_type ) {
 					$this->order->set_payment_method_title( $this->settings['oxxo_title'] );
-					update_post_meta( $this->order->get_id(), 'conekta-referencia', $charge->payment_method->reference );
+					update_post_meta( $this->order->get_id(), 'conekta-referencia', filter_input( INPUT_POST, 'reference' ) );
 					// Mark as on-hold (we're awaiting the notification of payment).
 					$this->order->update_status( 'on-hold', __( 'Awaiting the conekta OXXO payment', 'woocommerce' ) );
 				} else {
 					$this->order->set_payment_method_title( $this->settings['spei_title'] );
-					update_post_meta( $this->order->get_id(), 'conekta-clabe', $charge->payment_method->clabe );
+					update_post_meta( $this->order->get_id(), 'conekta-clabe', filter_input( INPUT_POST, 'clabe' ) );
 					// Mark as on-hold (we're awaiting the notification of payment).
 					$this->order->update_status( 'on-hold', __( 'Awaiting the conekta SPEI payment', 'woocommerce' ) );
 				}
-				update_post_meta( $this->order->get_id(), 'conekta-id', $charge->id );
-				update_post_meta( $this->order->get_id(), 'conekta-creado', $charge->created_at );
-				update_post_meta( $this->order->get_id(), 'conekta-expira', $charge->payment_method->expires_at );
+				update_post_meta( $this->order->get_id(), 'conekta-id', $this->transaction_id );
+				update_post_meta( $this->order->get_id(), 'conekta-creado', time() );
+				update_post_meta( $this->order->get_id(), 'conekta-expira', $this->ckpg_expiration_payment() );
 				// Remove cart.
 				$woocommerce->cart->empty_cart();
 				if ( isset( $_SESSION['order_awaiting_payment'] ) ) {
@@ -943,6 +1019,207 @@ function ckpg_conekta_card_add_gateway( $methods ) {
 add_filter( 'woocommerce_payment_gateways', 'ckpg_conekta_card_add_gateway' );
 
 /**
+ * Adds the Conekta Subscription tab for editing subscription attributes.
+ *
+ * @access public
+ * @param array $tabs list of product data tabs.
+ * @return array
+ */
+function ckpg_conekta_add_suscriptions_tab( $tabs ) {
+	$gateway                       = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	$tabs['conekta_subscriptions'] = array(
+		'label'    => $gateway->lang_options['subscriptions_tab'],
+		'target'   => 'conekta_subscriptions',
+		'class'    => array( 'show_if_simple', 'show_if_variable', 'show_if_external' ),
+		'priority' => 65,
+	);
+	return $tabs;
+}
+
+/**
+ * Saves subscription data with a product.
+ *
+ * @access public
+ * @param int $post_id id of the posted product element.
+ */
+function ckpg_conekta_save_subscription_fields( $post_id ) {
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	\Conekta\Conekta::setApiKey( $gateway->secret_key );
+	\Conekta\Conekta::setApiVersion( '2.0.0' );
+	\Conekta\Conekta::setPlugin( $gateway->name );
+	\Conekta\Conekta::setPluginVersion( $gateway->version );
+	\Conekta\Conekta::setLocale( 'es' );
+	$is_subscription = filter_input( INPUT_POST, '_is_subscription' );
+	if ( ! empty( $is_subscription ) ) {
+		$post_array = filter_input_array( INPUT_POST );
+		$plans_data = array_filter(
+			$post_array,
+			function( $element ) {
+				return false !== strpos( $element, '_subscription_plans_' );
+			},
+			ARRAY_FILTER_USE_KEY
+		);
+		try {
+			foreach ( $plans_data as $field => $plan ) {
+				$meta_key     = str_replace( '_field', '', $field );
+				$conekta_plan = 'none' === $plan ? array() : \Conekta\Plan::find( $plan );
+				if ( 'variable' === $post_array['product-type'] ) {
+					$variant_name   = explode( '_', $meta_key );
+					$variant_number = $variant_name[ count( $variant_name ) - 1 ];
+					$variant_index  = array_search( $variant_number, $post_array['variable_post_id'], true );
+					$sale_price     = $post_array['variable_sale_price'][ $variant_index ];
+					$price          = empty( $sale_price ) ? (float) $post_array['variable_regular_price'][ $variant_index ] : (float) $sale_price;
+					if ( 'none' !== $plan && ( (float) $conekta_plan['amount'] / 100 ) !== $price ) {
+						WC_Admin_Meta_Boxes::add_error( 'El producto ' . $post_array['post_title'] . ' no tiene el mismo precio que el plan ' . $conekta_plan['name'] );
+						update_post_meta( $variant_number, $meta_key, esc_attr( 'none' ) );
+					} else {
+						update_post_meta( $variant_number, $meta_key, esc_attr( $plan ) );
+					}
+				} elseif ( in_array( $post_array['product-type'], array( 'simple', 'external' ), true ) ) {
+					if ( 'none' === $plan ) {
+						$is_subscription = 'no';
+					} else {
+						$sale_price = $post_array['_sale_price'];
+						$price      = empty( $sale_price ) ? (float) $post_array['_regular_price'] : (float) $sale_price;
+						if ( ( (float) $conekta_plan['amount'] / 100 ) !== $price ) {
+							WC_Admin_Meta_Boxes::add_error( 'El producto no tiene el mismo precio que el plan ' . $conekta_plan['name'] );
+							$is_subscription = 'no';
+						} else {
+							update_post_meta( $post_id, $meta_key, esc_attr( $plan ) );
+						}
+					}
+				}
+			}
+		} catch ( Exception $e ) {
+			WC_Admin_Meta_Boxes::add_error( 'Hubo un error al guardar las suscripciones del producto' );
+		}
+		update_post_meta( $post_id, '_is_subscription', esc_attr( $is_subscription ) );
+	} else {
+		update_post_meta( $post_id, '_is_subscription', esc_attr( 'no' ) );
+	}
+}
+
+/**
+ * Adds the fields of the subscription tab when creating or editing a product.
+ *
+ * @access public
+ */
+function ckpg_conekta_add_suscription_fields() {
+
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	\Conekta\Conekta::setApiKey( $gateway->secret_key );
+	\Conekta\Conekta::setApiVersion( '2.0.0' );
+	\Conekta\Conekta::setPlugin( $gateway->name );
+	\Conekta\Conekta::setPluginVersion( $gateway->version );
+	\Conekta\Conekta::setLocale( 'es' );
+	$plans = array();
+	foreach ( \Conekta\Plan::all() as $p ) {
+		$plans[ $p['id'] ] = $p['name'] . ' - $' . ( $p['amount'] / 100 );
+	}
+	?><div id="conekta_subscriptions" class="panel woocommerce_options_panel">
+		<div id="conekta_subscriptions_inner">
+	<?php
+	global $post;
+	$product = wc_get_product( $post->ID );
+	woocommerce_wp_checkbox(
+		array(
+			'id'          => '_is_subscription',
+			'value'       => get_post_meta( (int) $post->ID, '_is_subscription', true ),
+			'label'       => $gateway->lang_options['subscriptions'],
+			'description' => $gateway->lang_options['subscriptions_desc'],
+			'default'     => 'no',
+		)
+	);
+	if ( $product->is_type( array( 'simple', 'external' ) ) ) {
+		woocommerce_wp_select(
+			array(
+				'id'          => '_subscription_plans_field',
+				'value'       => get_post_meta( (int) $post->ID, '_subscription_plans', true ),
+				'label'       => $gateway->lang_options['plan'],
+				'options'     => $plans,
+				'description' => $gateway->lang_options['plans_desc'],
+			)
+		);
+	} elseif ( $product->is_type( 'variable' ) ) {
+		$plans      = array_merge( array( 'none' => $gateway->lang_options['no_plan'] ), $plans );
+		$variations = array();
+		foreach ( $product->get_children() as $variation_id ) {
+			$variation = wc_get_product( $variation_id );
+			woocommerce_wp_select(
+				array(
+					'id'            => '_subscription_plans_' . $variation_id . '_field',
+					'wrapper_class' => 'show_if_variable',
+					'value'         => get_post_meta( (int) $variation_id, '_subscription_plans_' . $variation_id, true ),
+					'label'         => $variation->get_name(),
+					'options'       => $plans,
+					'description'   => $gateway->lang_options['plans_desc'],
+				)
+			);
+			$variations[ $variation_id ] = $variation->get_name();
+		}
+	}
+	?>
+		</div>
+	</div>
+	<?php
+	if ( 'edit' === get_current_screen()->parent_base && 'product' === get_current_screen()->id ) {
+		wp_register_script( 'conekta_product', WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) ) . '/assets/js/conekta_product.js', array( 'jquery' ), '1.0', true );
+		wp_enqueue_script( 'conekta_product' );
+		wp_localize_script(
+			'conekta_product',
+			'conekta_product',
+			array(
+				'plans_desc' => $gateway->lang_options['plans_desc'],
+				'no_plan'    => $gateway->lang_options['no_plan'],
+				'plans'      => $plans,
+				'variants'   => isset( $variations ) ? $variations : null,
+			)
+		);
+	}
+}
+
+/**
+ * Sets the tab icon of teh Conekta Subscription tab.
+ *
+ * @access public
+ */
+function ckpg_conekta_subscription_tab_icon() {
+	?>
+	<style>
+	#woocommerce-product-data ul.wc-tabs li.conekta_subscriptions_options a:before { font-family: WooCommerce; content: '\e00f'; }
+	</style>
+	<?php
+}
+
+add_action( 'admin_head', 'ckpg_conekta_subscription_tab_icon' );
+add_action( 'woocommerce_product_data_panels', 'ckpg_conekta_add_suscription_fields' );
+
+add_filter( 'woocommerce_product_data_tabs', 'ckpg_conekta_add_suscriptions_tab' );
+add_filter( 'woocommerce_process_product_meta', 'ckpg_conekta_save_subscription_fields' );
+
+/**
+ * Register the Conekta submenu.
+ *
+ * @access public
+ */
+function ckpg_register_conekta_submenu_page() {
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	$hook    = add_menu_page(
+		$gateway->lang_options['home'],
+		'Conekta',
+		'manage_options',
+		'conekta_menu',
+		array( $gateway, 'ckpg_conekta_submenu_page' ),
+		plugins_url( plugin_basename( dirname( __FILE__ ) ) . '/assets/images/conekta-logo.png' ),
+		66
+	);
+	add_submenu_page( 'conekta_menu', $gateway->lang_options['home'], $gateway->lang_options['home'], 'manage_options', 'conekta_menu', '' );
+	remove_submenu_page( 'conekta_menu', 'conekta_menu' );
+	add_submenu_page( 'conekta_menu', $gateway->lang_options['subscriptions'], $gateway->lang_options['subscriptions'], 'manage_options', 'conekta_subscriptions', array( WC()->payment_gateways->get_available_payment_gateways()['conektacard'], 'ckpg_conekta_submenu_page' ) );
+}
+add_action( 'admin_menu', 'ckpg_register_conekta_submenu_page', 70 );
+
+/**
  * Deletes a card payment method from the database.
  *
  * @access public
@@ -983,6 +1260,35 @@ function ckpg_checkout_delete_card() {
 add_action( 'wp_ajax_ckpg_checkout_delete_card', 'ckpg_checkout_delete_card' );
 
 /**
+ * Removes a coupon from a woocommerce order.
+ *
+ * @access public
+ * @param string $code of the deleted coupon.
+ */
+function ckpg_coupon_remove( $code ) {
+	$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
+	$wc_order  = new WC_Order( $old_order->order_number );
+	$wc_order->remove_coupon( $code );
+	ckpg_reload_checkout();
+}
+
+/**
+ * Reloads a checkout with a new coupon.
+ *
+ * @access public
+ */
+function ckpg_reload_checkout() {
+	?>
+	<script>
+		if(typeof validate_checkout !== 'undefined')
+			validate_checkout()
+	</script>
+	<?php
+}
+
+add_action( 'woocommerce_applied_coupon', 'ckpg_reload_checkout' );
+add_action( 'woocommerce_removed_coupon', 'ckpg_coupon_remove' );
+/**
  * Sets the billing data in a WooCommerce order.
  *
  * @access public
@@ -1006,6 +1312,7 @@ function set_billing_data( $wc_order ) {
  * Creates the order in WooCommerce and reutrns an AJAX response with its data to javascript.
  *
  * @access public
+ * @throws Exception Caught when subscriptions are multiple or mixed with products.
  */
 function ckpg_create_order() {
 	global $woocommerce;
@@ -1034,9 +1341,37 @@ function ckpg_create_order() {
 				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 			}
 		}
-
+		WC()->cart->calculate_totals();
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
+
+			$subscriptions        = array_filter(
+				WC()->cart->get_cart(),
+				function ( $element ) {
+					if ( 'yes' !== get_post_meta( (int) $element['product_id'], '_is_subscription', true ) ) {
+						return false;
+					} else {
+						$type = $element['data']->get_type();
+						if ( 'variation' !== $type ) {
+							return true;
+						} else {
+							$variation_id = (int) $element['variation_id'];
+							return 'none' !== get_post_meta( $variation_id, '_subscription_plans_' . $variation_id, true );
+						}
+					}
+				}
+			);
+			$has_subscriptions    = ! empty( $subscriptions );
+			$product_subscription = array();
+			if ( $has_subscriptions ) {
+				$product_subscription = reset( $subscriptions );
+				if ( 1 < count( $subscriptions ) || 1 < $product_subscription['quantity'] ) {
+					throw new Exception( $gateway->lang_options['error_multiple'] );
+				}
+				if ( count( WC()->cart->get_cart() ) !== count( $subscriptions ) ) {
+					throw new Exception( $gateway->lang_options['error_mixed'] );
+				}
+			}
 
 			$checkout    = WC()->checkout();
 			$posted_data = $checkout->get_posted_data();
@@ -1054,7 +1389,7 @@ function ckpg_create_order() {
 			$order_metadata = ckpg_build_order_metadata( $wc_order, $gateway->settings );
 
 			$allowed_installments = array();
-			if ( $gateway->enable_meses && 'yes' === $gateway->settings['enable_card'] ) {
+			if ( $gateway->enable_meses && 'yes' === $gateway->settings['enable_card'] && ! $has_subscriptions ) {
 				$total = (float) WC()->cart->total;
 				foreach ( array_keys( $gateway->lang_options['monthly_installments'] ) as $month ) {
 					if ( ! empty( $gateway->settings['amount_monthly_install'] ) ) {
@@ -1088,10 +1423,10 @@ function ckpg_create_order() {
 			if ( 'yes' === $gateway->settings['enable_card'] ) {
 				$allowed_payment_methods[] = 'card';
 			}
-			if ( 'yes' === $gateway->settings['enable_cash'] ) {
+			if ( 'yes' === $gateway->settings['enable_cash'] && ! $has_subscriptions ) {
 				$allowed_payment_methods[] = 'cash';
 			}
-			if ( 'yes' === $gateway->settings['enable_spei'] ) {
+			if ( 'yes' === $gateway->settings['enable_spei'] && ! $has_subscriptions ) {
 				$allowed_payment_methods[] = 'bank_transfer';
 			}
 
@@ -1102,6 +1437,15 @@ function ckpg_create_order() {
 				'force_3ds_flow'               => ( 'yes' === $gateway->settings['3ds'] ),
 				'on_demand_enabled'            => ( 'yes' === $gateway->enable_save_card ),
 			);
+
+			if ( $has_subscriptions ) {
+				$is_simple  = empty( $product_subscription['variation'] );
+				$product_id = $is_simple ? $product_subscription['product_id'] : $product_subscription['variation_id'];
+				$plan       = get_post_meta( (int) $product_id, '_subscription_plans' . ( $is_simple ? '' : '_' . $product_id ), true );
+				if ( ! empty( $plan ) && 'none' !== $plan ) {
+					$checkout['plan_id'] = $plan;
+				}
+			}
 
 			if ( in_array( 'cash', $allowed_payment_methods, true ) ) {
 				$checkout['expires_at'] = $gateway->ckpg_expiration_payment();
@@ -1159,7 +1503,7 @@ function ckpg_create_order() {
 		}
 		$response = array(
 			'checkout_id' => $order->checkout['id'],
-			'key'         => $gateway->secret_key,
+			'key'         => $gateway->publishable_key,
 			'price'       => WC()->cart->total,
 			'spei_text'   => $gateway->settings['spei_description'],
 			'cash_text'   => $gateway->settings['oxxo_description'],
@@ -1178,8 +1522,49 @@ function ckpg_create_order() {
 		$response = array(
 			'error' => $e->getMessage(),
 		);
+	} catch ( Exception $e ) {
+		$response = array(
+			'error' => $e->getMessage(),
+		);
 	}
 	wp_send_json( $response );
 }
 add_action( 'wp_ajax_nopriv_ckpg_create_order', 'ckpg_create_order' );
 add_action( 'wp_ajax_ckpg_create_order', 'ckpg_create_order' );
+
+/**
+ * Contacts Conekta API to retrive or send data.
+ *
+ * @access public
+ */
+function ckpg_conekta_api_request() {
+	$gateway   = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	$body      = filter_input( INPUT_POST, 'body', FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
+	$arguments = array(
+		'timeout' => 10,
+		'body'    => empty( $body ) ? array() : wp_json_encode( $body ),
+		'method'  => filter_input( INPUT_POST, 'method' ),
+		'headers' => array(
+			'Accept'        => 'application/vnd.conekta-v2.0.0+json',
+			'Cache-Control' => 'no-cache',
+			'Content-Type'  => 'application/json',
+			'Authorization' => 'Basic ' . base64_encode( $gateway->secret_key . ':' ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+		),
+	);
+	$response  = wp_remote_request(
+		filter_input( INPUT_POST, 'link' ),
+		$arguments
+	);
+	if ( 200 === $response['response']['code'] ) {
+		wp_send_json(
+			array(
+				'success'  => true,
+				'response' => json_decode( $response['body'] ),
+			)
+		);
+	} else {
+		wp_send_json_error( json_decode( $response['body'] ), 500 );
+	}
+}
+
+add_action( 'wp_ajax_ckpg_conekta_api_request', 'ckpg_conekta_api_request' );
