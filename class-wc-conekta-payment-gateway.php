@@ -179,9 +179,9 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 
 		if ( 'order' === $conekta_order['object'] && array_key_exists( 'charges', $conekta_order ) ) {
 			$charge   = $conekta_order['charges']['data'][0];
-			$order_id = $conekta_order['metadata']['reference_id'];
+			$order_id = parent::get_meta_by_value( 'conekta-order-id', $conekta_order['id'] )[0];
 			$order    = wc_get_order( $order_id );
-			if ( 'spei' === $charge['payment_method']['type'] && 'order.paid' !== strpos( $event['type'], false ) ) {
+			if ( 'spei' === $charge['payment_method']['type'] && false !== strpos( $event['type'], 'order.paid' ) ) {
 				$paid_at = gmdate( 'Y-m-d', $charge['paid_at'] );
 				update_post_meta( $order->get_id(), 'conekta-paid-at', $paid_at );
 				$order->payment_complete();
@@ -720,7 +720,8 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		}
 		$this->order->add_order_note(
 			sprintf(
-				'%s " . $payment_method . " Payment Failed : "%s"',
+				'%s %s Payment Failed : "%s"',
+				$payment_method,
 				$this->gateway_name,
 				$this->transaction_error_message
 			)
@@ -981,6 +982,36 @@ function ckpg_checkout_delete_card() {
 add_action( 'wp_ajax_ckpg_checkout_delete_card', 'ckpg_checkout_delete_card' );
 
 /**
+ * Removes a coupon from a woocommerce order.
+ *
+ * @access public
+ * @param string $code of the deleted coupon.
+ */
+function ckpg_coupon_remove( $code ) {
+	$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
+	$wc_order  = new WC_Order( $old_order->order_number );
+	$wc_order->remove_coupon( $code );
+	ckpg_reload_checkout();
+}
+
+/**
+ * Reloads a checkout with a new coupon.
+ *
+ * @access public
+ */
+function ckpg_reload_checkout() {
+	?>
+	<script>
+		if(typeof validate_checkout !== 'undefined')
+			validate_checkout()
+	</script>
+	<?php
+}
+
+add_action( 'woocommerce_applied_coupon', 'ckpg_reload_checkout' );
+add_action( 'woocommerce_removed_coupon', 'ckpg_coupon_remove' );
+
+/**
  * Sets the billing data in a WooCommerce order.
  *
  * @access public
@@ -1032,6 +1063,7 @@ function ckpg_create_order() {
 				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 			}
 		}
+		WC()->cart->calculate_totals();
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
 		if ( empty( $old_order ) ) {
 
@@ -1172,6 +1204,10 @@ function ckpg_create_order() {
 		if ( null !== $order_id ) {
 			wp_delete_post( $order_id, true );
 		}
+		$response = array(
+			'error' => $e->getMessage(),
+		);
+	} catch ( Exception $e ) {
 		$response = array(
 			'error' => $e->getMessage(),
 		);
