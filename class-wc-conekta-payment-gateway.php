@@ -14,6 +14,10 @@ if ( ! class_exists( 'Conekta' ) ) {
 	require_once 'lib/conekta-php/lib/Conekta.php';
 }
 
+if ( ! defined( 'MAX_VALUE_OXXO_PAY' ) ) {
+	define( 'MAX_VALUE_OXXO_PAY', 10000 );
+}
+
 /**
  * Title   : Conekta Payment extension for WooCommerce
  * Author  : Conekta.io
@@ -174,10 +178,12 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 		if ( false === $body ) {
 			return;
 		}
-		$event         = json_decode( $body, true );
+		$event = json_decode( $body, true );
+		ck_debuglog( 'Event Type', $event['type'] );
 		$conekta_order = $event['data']['object'];
 
 		if ( 'order' === $conekta_order['object'] && array_key_exists( 'charges', $conekta_order ) ) {
+			ck_debuglog( 'Order Event', $conekta_order );
 			$charge   = $conekta_order['charges']['data'][0];
 			$order_id = parent::get_meta_by_value( 'conekta-order-id', $conekta_order['id'] )[0];
 			$order    = wc_get_order( $order_id );
@@ -259,8 +265,15 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 			} elseif ( 'pre_authorized' === $conekta_order['payment_status'] ) {
 				$conekta_order->void();
 			}
+			ck_debuglog( 'Order Refunded', $conekta_order );
 		} catch ( \Conekta\Handler $e ) {
 			$description = $e->getMessage();
+			ck_debuglog( 'Order Refunded Error', $description );
+			ob_start();
+			debug_print_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_print_backtrace
+			$trace = ob_get_contents();
+			ob_end_clean();
+			ck_debuglog( 'Order Refunded Error Backtrace', $trace );
 			global $wp_version;
 			if ( version_compare( $wp_version, '4.1', '>=' ) ) {
 				wc_add_notice( __( 'Error: ', 'woothemes' ) . $description, $notice_type = 'error' );
@@ -335,6 +348,12 @@ class WC_Conekta_Payment_Gateway extends WC_Conekta_Plugin {
 				'type'    => 'checkbox',
 				'title'   => __( 'Testing', 'woothemes' ),
 				'label'   => __( 'Turn on testing', 'woothemes' ),
+				'default' => 'no',
+			),
+			'debuglog'               => array(
+				'type'    => 'checkbox',
+				'title'   => __( 'Debug Log', 'woothemes' ),
+				'label'   => __( 'Turn on debug log', 'woothemes' ),
 				'default' => 'no',
 			),
 			'card_title'             => array(
@@ -1052,6 +1071,7 @@ function ckpg_create_order() {
 		$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
 		if ( 0 !== $wc_user_id && ! empty( $customer_id ) ) {
 			$customer = \Conekta\Customer::find( $customer_id );
+			ck_debuglog( 'Current Customer', $customer );
 		} else {
 			$customer_data = array(
 				'name'  => ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ),
@@ -1059,6 +1079,7 @@ function ckpg_create_order() {
 				'phone' => filter_input( INPUT_POST, 'phone' ),
 			);
 			$customer      = \Conekta\Customer::create( $customer_data );
+			ck_debuglog( 'Created Customer', $customer );
 			if ( 0 !== $wc_user_id ) {
 				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 			}
@@ -1117,7 +1138,7 @@ function ckpg_create_order() {
 			if ( 'yes' === $gateway->settings['enable_card'] ) {
 				$allowed_payment_methods[] = 'card';
 			}
-			if ( 'yes' === $gateway->settings['enable_cash'] ) {
+			if ( 'yes' === $gateway->settings['enable_cash'] && WC()->cart->total <= MAX_VALUE_OXXO_PAY ) {
 				$allowed_payment_methods[] = 'cash';
 			}
 			if ( 'yes' === $gateway->settings['enable_spei'] ) {
@@ -1143,19 +1164,19 @@ function ckpg_create_order() {
 				'discount_lines'   => $discount_lines,
 				'shipping_contact' => array(
 					'phone'    => filter_input( INPUT_POST, 'phone' ),
-					'receiver' => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
+					'receiver' => remove_special_character( ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ) ),
 					'address'  => array(
-						'street1'     => filter_input( INPUT_POST, 'address_1' ),
-						'street2'     => filter_input( INPUT_POST, 'address_2' ),
-						'country'     => filter_input( INPUT_POST, 'country' ),
-						'postal_code' => filter_input( INPUT_POST, 'postcode' ),
+						'street1'     => remove_special_character( filter_input( INPUT_POST, 'address_1' ) ),
+						'street2'     => remove_special_character( filter_input( INPUT_POST, 'address_2' ) ),
+						'country'     => remove_special_character( filter_input( INPUT_POST, 'country' ) ),
+						'postal_code' => remove_special_character( filter_input( INPUT_POST, 'postcode' ) ),
 					),
 				),
 				'pre_authorize'    => ( 'yes' === $gateway->settings['enable_pre_authorize'] ),
 				'checkout'         => $checkout,
 				'customer_info'    => array(
 					'customer_id' => $customer['id'],
-					'name'        => $customer['name'],
+					'name'        => remove_special_character( $customer['name'] ),
 					'email'       => $customer['email'],
 					'phone'       => $customer['phone'],
 				),
@@ -1164,17 +1185,19 @@ function ckpg_create_order() {
 			);
 			$order_details = ckpg_check_balance( $order_details, $amount );
 			$order         = \Conekta\Order::create( $order_details );
+			ck_debuglog( 'Order Details', $order_details );
+			ck_debuglog( 'Created Order', $order );
 			WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id );
 		} else {
 			$order_details = array(
 				'shipping_contact' => array(
 					'phone'    => filter_input( INPUT_POST, 'phone' ),
-					'receiver' => ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
+					'receiver' => remove_special_character( ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ) ),
 					'address'  => array(
-						'street1'     => filter_input( INPUT_POST, 'address_1' ),
-						'street2'     => filter_input( INPUT_POST, 'address_2' ),
-						'country'     => filter_input( INPUT_POST, 'country' ),
-						'postal_code' => filter_input( INPUT_POST, 'postcode' ),
+						'street1'     => remove_special_character( filter_input( INPUT_POST, 'address_1' ) ),
+						'street2'     => remove_special_character( filter_input( INPUT_POST, 'address_2' ) ),
+						'country'     => remove_special_character( filter_input( INPUT_POST, 'country' ) ),
+						'postal_code' => remove_special_character( filter_input( INPUT_POST, 'postcode' ) ),
 					),
 				),
 				'customer_info'    => array(
@@ -1185,6 +1208,8 @@ function ckpg_create_order() {
 			);
 			$order         = \Conekta\Order::find( $old_order->order_id );
 			$order->update( $order_details );
+			ck_debuglog( 'Order Details', $order_details );
+			ck_debuglog( 'Updated Order', $order );
 		}
 		$response = array(
 			'checkout_id' => $order->checkout['id'],
@@ -1195,6 +1220,12 @@ function ckpg_create_order() {
 		);
 	} catch ( \Conekta\Handler $e ) {
 		$description = $e->getMessage();
+		ck_debuglog( 'Error - Create Order', $description );
+		ob_start();
+		debug_print_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_print_backtrace
+		$trace = ob_get_contents();
+		ob_end_clean();
+		ck_debuglog( 'Error - Create Order Backtrace', $trace );
 		global $wp_version;
 		if ( version_compare( $wp_version, '4.1', '>=' ) ) {
 			wc_add_notice( __( 'Error: ', 'woothemes' ) . $description, $notice_type = 'error' );
@@ -1211,8 +1242,49 @@ function ckpg_create_order() {
 		$response = array(
 			'error' => $e->getMessage(),
 		);
+		ck_debuglog( 'Error', $response['error'] );
+		ob_start();
+		debug_print_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_print_backtrace
+		$trace = ob_get_contents();
+		ob_end_clean();
+		ck_debuglog( 'Error', $trace );
 	}
 	wp_send_json( $response );
 }
 add_action( 'wp_ajax_nopriv_ckpg_create_order', 'ckpg_create_order' );
 add_action( 'wp_ajax_ckpg_create_order', 'ckpg_create_order' );
+
+/**
+ * This function creates a file "debuglog-yy-mm-dd.log" in the folder "logs" where details of orders / users / errors are displayed.
+ *
+ * @access public
+ * @param string $msg message.
+ * @param Object $print_data information to print.
+ */
+function ck_debuglog( $msg, $print_data ) {
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
+	if ( 'yes' === $gateway->settings['debuglog'] ) {
+		require_once ABSPATH . 'wp-admin/includes/class-wp-filesystem-base.php';
+		global $wp_filesystem;
+		if ( ! is_a( $wp_filesystem, 'WP_Filesystem_Base' ) ) {
+			include_once ABSPATH . 'wp-admin/includes/file.php';
+			$creds = request_filesystem_credentials( site_url() );
+			wp_filesystem( $creds );
+		}
+		$dir  = dirname( __FILE__ ) . '/logs/';
+		$date = gmdate( 'Y-m-d' );
+		$time = gmdate( 'H:i:s' );
+		if ( ! file_exists( $dir ) ) {
+			mkdir( $dir, 0775, true );
+		}
+		$file_name = $dir . 'debuglog-' . $date . '.log';
+		$file      = $wp_filesystem->get_contents( $file_name, 0775 );
+		if ( ! is_readable( $file_name ) ) {
+			$file = '';
+		}
+		$date_time   = '[ ' . $date . ' ' . $time . ' ] ';
+		$data_string = print_r( $print_data, true ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_print_r
+		$file        = $file . $date_time . $msg . ': ' . $data_string . PHP_EOL;
+		$wp_filesystem->put_contents( $file_name, $file, 0755 );
+	}
+}

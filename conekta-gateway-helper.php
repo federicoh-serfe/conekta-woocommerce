@@ -132,7 +132,7 @@ function ckpg_build_line_items( $items, $version ) {
 		$quantity    = intval( $item['qty'] );
 
 		$line_item_params = array(
-			'name'       => $item_name,
+			'name'       => remove_special_character( $item_name ),
 			'unit_price' => $unit_price,
 			'quantity'   => $quantity,
 			'tags'       => array( 'WooCommerce', 'Conekta ' . $version ),
@@ -165,7 +165,7 @@ function ckpg_build_tax_lines( $taxes ) {
 	foreach ( $taxes as $tax ) {
 
 		$tax_amount = floatval( $tax['tax_amount'] ) * 1000;
-		$tax_name   = (string) $tax['label'];
+		$tax_name   = remove_special_character( (string) $tax['label'] );
 		$tax_name   = esc_html( $tax_name );
 		$tax_lines  = array_merge(
 			$tax_lines,
@@ -470,3 +470,12 @@ function validate_total( $total = '' ) {
 	return $total;
 }
 
+/**
+ * Remove special characters from strings.
+ *
+ * @access public
+ * @param string $param string remove to characters.
+ */
+function remove_special_character( $param ) {
+	return preg_replace( '/[^0-9a-zA-ZáéíóúüÁÉÍÓÚÜ ]/u', '', $param );
+}
