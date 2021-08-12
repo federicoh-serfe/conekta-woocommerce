@@ -1184,8 +1184,8 @@ function ckpg_create_order() {
 				'currency'         => $data['currency'],
 			);
 			$order_details = ckpg_check_balance( $order_details, $amount );
-			$order         = \Conekta\Order::create( $order_details );
 			ck_debuglog( 'Order Details', $order_details );
+			$order         = \Conekta\Order::create( $order_details );
 			ck_debuglog( 'Created Order', $order );
 			WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id );
 		} else {
