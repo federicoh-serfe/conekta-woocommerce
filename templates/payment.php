@@ -14,7 +14,7 @@
 
 <div class="clear"></div>
 <span style="width: 100%; float: left; color: red;" class='payment-errors required'></span>
-<?php $order_correct = ( ( (float) WC()->cart->total ) >= parent::MINIMUM_ORDER_AMOUNT ); ?>
+<?php $order_correct = ( ( (float) WC()->cart->get_subtotal() ) >= parent::MINIMUM_ORDER_AMOUNT ); ?>
 	<p id="conektaBillingFormErrorMessage">
 		<?php
 		if ( $order_correct ) {

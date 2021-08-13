@@ -1105,7 +1105,7 @@ function ckpg_create_order() {
 
 			$allowed_installments = array();
 			if ( $gateway->enable_meses && 'yes' === $gateway->settings['enable_card'] ) {
-				$total = (float) WC()->cart->total;
+				$total = (float) WC()->cart->get_subtotal();
 				foreach ( array_keys( $gateway->lang_options['monthly_installments'] ) as $month ) {
 					if ( ! empty( $gateway->settings['amount_monthly_install'] ) ) {
 						$elegible = $total >= (int) $gateway->settings['amount_monthly_install'];
