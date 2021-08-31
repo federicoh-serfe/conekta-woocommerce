@@ -90,9 +90,10 @@ function ckpg_conekta_checkout_custom_scripts_and_styles() {
 	wp_enqueue_script( 'conekta_checkout_js' );
 	wp_localize_script( 'conekta_checkout_js', 'conekta_checkout_js', array( 'ajaxurl' => admin_url( 'admin-ajax.php' ) ) );
 
+	$gateway = WC()->payment_gateways->get_available_payment_gateways()['conektacard'];
 	wp_register_script( 'tokenize', WP_PLUGIN_URL . '/' . plugin_basename( dirname( __FILE__ ) ) . '/assets/js/tokenize.js', array( 'jquery' ), '1.0', true ); // check import convention.
 	wp_enqueue_script( 'tokenize' );
-	wp_localize_script( 'tokenize', 'tokenize', array( 'ajaxurl' => admin_url( 'admin-ajax.php' ) ) );
+	wp_localize_script( 'tokenize', 'tokenize', array( 'ajaxurl' => admin_url( 'admin-ajax.php' ), 'loading_text' => $gateway->lang_options['loading'], 'enter_customer_details' => $gateway->lang_options['enter_customer_details'] ) );
 
 	wp_register_script( 'conekta-checkout', 'https://pay.conekta.com/v1.0/js/conekta-checkout.min.js', array( 'jquery' ), '1.0', true );
 	wp_enqueue_script( 'conekta-checkout' );

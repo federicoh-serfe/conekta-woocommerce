@@ -40,5 +40,15 @@
     }
     if(order_btn_card)
             order_btn_card.style.display = (radiogroup.value == "conektacard") ? "none" : "block";
+    if(typeof validate_checkout !== 'undefined'){
+        jQuery(document.body).on(
+            'change',
+            '#customer_details input, select[name=billing_country], select[name=billing_state], select[name=shipping_country], select[name=shipping_state]',
+            function() {
+                console.log( jQuery( this ) )
+                validate_checkout();
+        });
+        validate_checkout()
+    }
 </script>
 <div class="clear"></div> 

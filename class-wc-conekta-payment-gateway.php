@@ -1068,21 +1068,28 @@ function ckpg_create_order() {
 		\Conekta\Conekta::setLocale( 'es' );
 
 		$wc_user_id  = get_current_user_id();
-		$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
-		if ( 0 !== $wc_user_id && ! empty( $customer_id ) ) {
+		$session     = 0 !== $wc_user_id ? $wc_user_id : WC()->session->get_customer_id();
+		$customer_id = WC_Conekta_Plugin::ckpg_get_conekta_metadata( $session, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID );
+		if ( ! empty( $customer_id ) ) {
 			$customer = \Conekta\Customer::find( $customer_id );
 			ck_debuglog( 'Current Customer', $customer );
+			$customer->update(
+				array(
+					'name'  => remove_special_character( ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ) ),
+					'email' => filter_input( INPUT_POST, 'email' ),
+					'phone' => filter_input( INPUT_POST, 'phone' ),
+				)
+			);
+			ck_debuglog( 'Customer updated', $customer );
 		} else {
 			$customer_data = array(
-				'name'  => ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ),
+				'name'  => remove_special_character( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ),
 				'email' => filter_input( INPUT_POST, 'email' ),
 				'phone' => filter_input( INPUT_POST, 'phone' ),
 			);
 			$customer      = \Conekta\Customer::create( $customer_data );
 			ck_debuglog( 'Created Customer', $customer );
-			if ( 0 !== $wc_user_id ) {
-				WC_Conekta_Plugin::ckpg_update_conekta_metadata( $wc_user_id, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
-			}
+			WC_Conekta_Plugin::ckpg_update_conekta_metadata( $session, WC_Conekta_Plugin::CONEKTA_CUSTOMER_ID, $customer->id );
 		}
 		WC()->cart->calculate_totals();
 		$old_order = WC_Conekta_Plugin::ckpg_get_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash() );
@@ -1164,7 +1171,7 @@ function ckpg_create_order() {
 				'discount_lines'   => $discount_lines,
 				'shipping_contact' => array(
 					'phone'    => filter_input( INPUT_POST, 'phone' ),
-					'receiver' => remove_special_character( ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ) ),
+					'receiver' => remove_special_character( ( ( filter_input( INPUT_POST, 'shipping_first_name' ) ) . ' ' . ( filter_input( INPUT_POST, 'shipping_last_name' ) ) ) ),
 					'address'  => array(
 						'street1'     => remove_special_character( filter_input( INPUT_POST, 'address_1' ) ),
 						'street2'     => remove_special_character( filter_input( INPUT_POST, 'address_2' ) ),
@@ -1185,14 +1192,16 @@ function ckpg_create_order() {
 			);
 			$order_details = ckpg_check_balance( $order_details, $amount );
 			ck_debuglog( 'Order Details', $order_details );
-			$order         = \Conekta\Order::create( $order_details );
+			$order = \Conekta\Order::create( $order_details );
 			ck_debuglog( 'Created Order', $order );
 			WC_Conekta_Plugin::ckpg_insert_conekta_unfinished_order( WC()->session->get_customer_id(), WC()->cart->get_cart_hash(), $order->id, $order_id );
 		} else {
+			$wc_order = wc_get_order( $old_order->order_number );
+			set_billing_data( $wc_order );
 			$order_details = array(
 				'shipping_contact' => array(
 					'phone'    => filter_input( INPUT_POST, 'phone' ),
-					'receiver' => remove_special_character( ( ( filter_input( INPUT_POST, 'firstName' ) ) . ' ' . ( filter_input( INPUT_POST, 'lastName' ) ) ) ),
+					'receiver' => remove_special_character( ( ( filter_input( INPUT_POST, 'shipping_first_name' ) ) . ' ' . ( filter_input( INPUT_POST, 'shipping_last_name' ) ) ) ),
 					'address'  => array(
 						'street1'     => remove_special_character( filter_input( INPUT_POST, 'address_1' ) ),
 						'street2'     => remove_special_character( filter_input( INPUT_POST, 'address_2' ) ),
@@ -1226,12 +1235,6 @@ function ckpg_create_order() {
 		$trace = ob_get_contents();
 		ob_end_clean();
 		ck_debuglog( 'Error - Create Order Backtrace', $trace );
-		global $wp_version;
-		if ( version_compare( $wp_version, '4.1', '>=' ) ) {
-			wc_add_notice( __( 'Error: ', 'woothemes' ) . $description, $notice_type = 'error' );
-		} else {
-			$woocommerce->add_error( __( 'Error: ', 'woothemes' ) . $description );
-		}
 		if ( null !== $order_id ) {
 			wp_delete_post( $order_id, true );
 		}
